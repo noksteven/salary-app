@@ -487,6 +487,13 @@
       color: white;
     }
     .person-btn.add:hover { background: var(--primary-hover); }
+    .person-btn.move {
+      background: #E0F2FE;
+      color: #0369A1;
+    }
+    .person-btn.move:hover { background: #BAE6FD; }
+    .person-btn.move:disabled { opacity: 0.3; cursor: not-allowed; }
+    .person-btn.move:disabled:hover { background: #E0F2FE; color: #0369A1; }
     .person-btn.del {
       background: #FEE2E2;
       color: var(--danger);
@@ -494,6 +501,26 @@
     .person-btn.del:hover { background: var(--danger); color: white; }
     .person-btn.del:disabled { opacity: 0.3; cursor: not-allowed; }
     .person-btn.del:disabled:hover { background: #FEE2E2; color: var(--danger); }
+
+    .health-dep-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .health-dep-select {
+      padding: 5px 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.82rem;
+      color: var(--text);
+      background: white;
+      outline: none;
+    }
+    .health-dep-select:focus { border-color: var(--primary); }
 
     /* ── Min wage warning ── */
     input.warn { border-color: #F59E0B !important; background: #FFFBEB !important; }
@@ -735,8 +762,10 @@
         <option value="">── 請選擇員工 ──</option>
       </select>
       <span class="person-saved-badge" id="saved-badge">✓ 已儲存</span>
-      <button class="person-btn add" onclick="addEmployee()" title="新增員工">＋</button>
-      <button class="person-btn del" id="del-btn" onclick="deleteEmployee()" title="刪除員工" disabled>🗑</button>
+      <button type="button" class="person-btn move" id="move-up-btn" onclick="moveEmployee(-1)" title="往上移" disabled>↑</button>
+      <button type="button" class="person-btn move" id="move-down-btn" onclick="moveEmployee(1)" title="往下移" disabled>↓</button>
+      <button type="button" class="person-btn add" onclick="addEmployee()" title="新增員工">＋</button>
+      <button type="button" class="person-btn del" id="del-btn" onclick="deleteEmployee()" title="刪除員工" disabled>🗑</button>
     </div>
 
     <!-- ╔══ 正職 ══╗ -->
@@ -867,6 +896,15 @@
         <label class="toggle-wrap">
           <input type="checkbox" id="ft-health-ins" checked onchange="calcFulltime()">
           <label for="ft-health-ins">全民健保</label>
+        </label>
+        <label class="health-dep-wrap" for="ft-health-dep">
+          眷屬
+          <select id="ft-health-dep" class="health-dep-select" onchange="calcFulltime()">
+            <option value="0">0 人</option>
+            <option value="1">1 人</option>
+            <option value="2">2 人</option>
+            <option value="3">3 人</option>
+          </select>
         </label>
       </div>
 
@@ -1089,6 +1127,7 @@
   }
 
   function _updatePickerDisplay() {
+    if (!_selectedMonth) return;
     const [y, m] = _selectedMonth.split('-');
     document.getElementById('month-display-btn').textContent = `${y}年${m}月`;
     document.getElementById('picker-year-label').textContent = `${_pickerYear}年`;
@@ -1169,7 +1208,34 @@
       if (name === selectedName) opt.selected = true;
       sel.appendChild(opt);
     });
-    document.getElementById('del-btn').disabled = !sel.value;
+    updateEmployeeOrderButtons();
+  }
+
+  function updateEmployeeOrderButtons() {
+    const sel = document.getElementById('person-select');
+    const idx = sel.selectedIndex - 1;
+    const count = sel.options.length - 1;
+    document.getElementById('del-btn').disabled = idx < 0;
+    document.getElementById('move-up-btn').disabled = idx <= 0;
+    document.getElementById('move-down-btn').disabled = idx < 0 || idx >= count - 1;
+  }
+
+  function moveEmployee(delta) {
+    const sel = document.getElementById('person-select');
+    const idx = sel.selectedIndex - 1;
+    if (idx < 0) return;
+    const store = currentStore();
+    const mode = currentMode();
+    const list = getEmployees(store, mode);
+    const nextIdx = idx + delta;
+    if (nextIdx < 0 || nextIdx >= list.length) return;
+    const person = list[idx];
+    [list[idx], list[nextIdx]] = [list[nextIdx], list[idx]];
+    saveEmployees(store, mode, list);
+    renderEmployeeSelect(store, mode, person);
+    document.getElementById('person-select').selectedIndex = nextIdx + 1;
+    updateEmployeeOrderButtons();
+    renderSummaryTable();
   }
 
   function switchStore(store) {
@@ -1210,7 +1276,7 @@
   }
 
   // ════ 人員記憶功能 ════
-  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-leave-used','ft-leave-kept'];
+  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-health-dep','ft-leave-used','ft-leave-kept'];
   const PT_FIELDS = ['pt-hourly','pt-hours','pt-hpd','pt-ot1','pt-ot2'];
 
   function storageKey(store, person, mode, month) {
@@ -1234,6 +1300,7 @@
       document.getElementById('ft-leave-kept').value = '0';
       document.getElementById('ft-labor-ins').checked = true;
       document.getElementById('ft-health-ins').checked = true;
+      document.getElementById('ft-health-dep').value = '0';
       document.getElementById('ft-tenure-info').style.display = 'none';
       document.getElementById('ft-leave-wrap').style.display = 'none';
       document.getElementById('ft-leave-remain').textContent = '';
@@ -1295,6 +1362,7 @@
   const FT_CARRY_FIELDS = new Set([
     'ft-salary',
     'ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift',
+    'ft-health-dep',
     'ft-leave-used','ft-leave-kept'
   ]);
   const PT_CARRY_FIELDS = new Set(['pt-hourly','pt-hpd']);
@@ -1316,6 +1384,7 @@
           FT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
           document.getElementById('ft-labor-ins').checked = data['ft-labor-ins'] ?? true;
           document.getElementById('ft-health-ins').checked = data['ft-health-ins'] ?? true;
+          document.getElementById('ft-health-dep').value = data['ft-health-dep'] ?? '0';
           document.getElementById('ft-startdate').value = data['ft-startdate'] || '';
         } else {
           PT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
@@ -1348,6 +1417,7 @@
       document.getElementById('ft-startdate').value = prev['ft-startdate'] || '';
       document.getElementById('ft-labor-ins').checked = prev['ft-labor-ins'] ?? true;
       document.getElementById('ft-health-ins').checked = prev['ft-health-ins'] ?? true;
+      document.getElementById('ft-health-dep').value = prev['ft-health-dep'] ?? '0';
     } else {
       PT_CARRY_FIELDS.forEach(id => {
         if (prev[id] !== undefined) document.getElementById(id).value = prev[id];
@@ -1357,7 +1427,7 @@
   }
 
   function switchPerson(person) {
-    document.getElementById('del-btn').disabled = !person;
+    updateEmployeeOrderButtons();
     if (!person) { resetResults(); return; }
     // 不改動月份，直接以當前選定月份載入該員工資料
     loadPersonData(person, currentMode(), currentMonth());
@@ -1394,9 +1464,10 @@
     const base = Math.min(Math.max(salary, MIN_WAGE_MONTHLY), 45800);
     return Math.round(base * 0.125 * 0.20);
   }
-  function healthIns(salary) {
+  function healthIns(salary, dependents) {
     const base = Math.max(salary, MIN_WAGE_MONTHLY);
-    return Math.round(base * 0.0517 * 0.30);
+    const depCount = Math.min(Math.max(parseInt(dependents, 10) || 0, 0), 3);
+    return Math.round(base * 0.0517 * 0.30 * (1 + depCount));
   }
   function ntd(amount) {
     return 'NT$ ' + Math.round(amount).toLocaleString('zh-TW');
@@ -1472,8 +1543,9 @@
     const restdayOT = hourly * ot3h;
     const sub1      = basePay + weekdayOT + restdayOT;
 
+    const healthDep = v('ft-health-dep');
     const labI  = document.getElementById('ft-labor-ins').checked  ? Math.round(laborIns(sal) * workdays / 30) : 0;
-    const hthI  = document.getElementById('ft-health-ins').checked ? healthIns(sal) : 0;
+    const hthI  = document.getElementById('ft-health-ins').checked ? healthIns(sal, healthDep) : 0;
     const sickD = Math.ceil(hourly / 2) * v('ft-sick');
     const persD = hourly * v('ft-personal');
     const sub2  = labI + hthI + sickD + persD;
@@ -1635,7 +1707,8 @@ body { background:white; }
     const labIns  = data['ft-labor-ins'] === 'true' || data['ft-labor-ins'] === true;
     const hthIns  = data['ft-health-ins'] === 'true' || data['ft-health-ins'] === true;
     const labI   = labIns ? Math.round(laborIns(sal) * workdays / 30) : 0;
-    const hthI   = hthIns ? healthIns(sal) : 0;
+    const healthDep = parseFloat(data['ft-health-dep']) || 0;
+    const hthI   = hthIns ? healthIns(sal, healthDep) : 0;
     const sickD  = Math.ceil(hourly / 2) * (parseFloat(data['ft-sick']) || 0);
     const persD  = hourly * (parseFloat(data['ft-personal']) || 0);
     const sub2   = labI + hthI + sickD + persD;
@@ -1655,7 +1728,7 @@ body { background:white; }
     const gross  = base + ot1Pay + ot2Pay;
     const ins    = data['pt-ins'] === 'true' || data['pt-ins'] === true;
     const labI   = ins ? laborIns(gross) : 0;
-    const hthI   = ins ? healthIns(gross) : 0;
+    const hthI   = ins ? healthIns(gross, 0) : 0;
     const net    = Math.ceil((gross - labI - hthI) / 10) * 10;
     return { sal: base, ot: ot1Pay + ot2Pay, bonus: 0, deduct: labI + hthI, net, total: net };
   }
@@ -1663,6 +1736,12 @@ body { background:white; }
   function renderSummaryTable() {
     const store = currentStore();
     const month = currentMonth();
+    if (!month) {
+      document.getElementById('summary-month-label').textContent = '';
+      document.getElementById('summary-table-body').innerHTML =
+        '<p style="text-align:center;color:var(--text-muted);padding:1.5rem;">請先選擇月份</p>';
+      return;
+    }
     const [ys, ms] = month.split('-');
     const rocYear  = parseInt(ys) - 1911;
     const mp       = String(parseInt(ms)).padStart(2, '0');
@@ -1917,8 +1996,9 @@ body { background:white; }
     // 勞健保（分開計算）
     const withLabor = document.getElementById('ft-labor-ins').checked;
     const withHealth = document.getElementById('ft-health-ins').checked;
+    const healthDep = v('ft-health-dep');
     const labIns  = withLabor  ? Math.round(laborIns(salary) * workdays / 30) : 0;
-    const hthIns  = withHealth ? healthIns(salary) : 0;
+    const hthIns  = withHealth ? healthIns(salary, healthDep) : 0;
     const totalIns = labIns + hthIns;
 
     // 合計（底薪用比例薪資）
@@ -1972,7 +2052,7 @@ body { background:white; }
 
     if (withLabor || withHealth) {
       if (withLabor)  html += row('勞工保險費（員工自付）', '－' + ntd(labIns),  'neg');
-      if (withHealth) html += row('全民健保費（員工自付）', '－' + ntd(hthIns), 'neg');
+      if (withHealth) html += row(`全民健保費（員工自付，${1 + healthDep} 口）`, '－' + ntd(hthIns), 'neg');
       if (withLabor && withHealth)
         html += subtotalRow('勞健保扣除小計', '－' + ntd(totalIns), 'deduct');
     } else {
@@ -2022,7 +2102,7 @@ body { background:white; }
     const grossPay = regularPay + totalOT;
 
     const labIns  = withIns ? laborIns(grossPay)  : 0;
-    const hthIns  = withIns ? healthIns(grossPay) : 0;
+    const hthIns  = withIns ? healthIns(grossPay, 0) : 0;
     const netPay  = Math.ceil((grossPay - labIns - hthIns) / 10) * 10;
 
     let html = '';
