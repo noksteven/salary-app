@@ -1715,7 +1715,7 @@ body { background:white; }
     const net    = Math.ceil((sub1 - sub2) / 10) * 10;
     const bonus  = ['ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift']
                     .reduce((s, k) => s + (parseFloat(data[k]) || 0), 0);
-    return { sal: basePay, ot: otPay, bonus, deduct: sub2, net, total: net + bonus };
+    return { sal: basePay, ot: otPay, bonus, deduct: sub2, net, total: Math.ceil((sub1 + bonus - sub2) / 10) * 10 };
   }
 
   function computePTSummary(data) {
