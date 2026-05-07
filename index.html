@@ -1,0 +1,2106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>薪資計算器</title>
+  <style>
+    :root {
+      --primary: #4F46E5;
+      --primary-hover: #4338CA;
+      --primary-light: #EEF2FF;
+      --bg: #F1F5F9;
+      --card: #FFFFFF;
+      --text: #1E293B;
+      --text-muted: #64748B;
+      --border: #E2E8F0;
+      --success: #059669;
+      --danger: #DC2626;
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+      --radius: 14px;
+      --radius-sm: 8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, 'PingFang TC', 'Microsoft JhengHei', 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+      color: white;
+      padding: 2.5rem 1rem 3rem;
+      text-align: center;
+    }
+    .header h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; }
+    .header p  { font-size: 0.9rem; opacity: 0.75; margin-top: 6px; }
+
+    /* ── Container ── */
+    .container { max-width: 1040px; margin: 0 auto; padding: 0 1rem; }
+
+    /* ── Mode Toggle ── */
+    .mode-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: -1.6rem;
+      margin-bottom: 1.5rem;
+    }
+    .mode-toggle {
+      display: flex;
+      background: white;
+      border-radius: 50px;
+      padding: 5px;
+      box-shadow: 0 4px 20px rgba(79,70,229,0.25);
+      gap: 4px;
+    }
+    .mode-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 28px;
+      border: none;
+      border-radius: 50px;
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      transition: all 0.25s;
+      white-space: nowrap;
+    }
+    .mode-btn .icon { font-size: 1.2rem; }
+    .mode-btn .sub  { font-size: 0.72rem; font-weight: 400; display: block; color: var(--text-muted); }
+    .mode-btn:hover { color: var(--primary); }
+    .mode-btn.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 2px 8px rgba(79,70,229,0.4);
+    }
+    .mode-btn.active .sub { color: rgba(255,255,255,0.75); }
+
+    /* ── Grid ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      padding-bottom: 2rem;
+      align-items: start;
+    }
+    @media (max-width: 700px) { .main-grid { grid-template-columns: 1fr; } }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      padding: 1.5rem;
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 1rem;
+      margin-bottom: 0.25rem;
+      border-bottom: 2px solid var(--bg);
+    }
+
+    /* ── Section Labels ── */
+    .sec-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--primary);
+      margin: 1.25rem 0 0.65rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sec-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Inputs ── */
+    .input-group { margin-bottom: 0.75rem; }
+    .input-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .prefix, .suffix {
+      position: absolute;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      pointer-events: none;
+      user-select: none;
+    }
+    .prefix { left: 10px; }
+    .suffix { right: 10px; }
+    .input-group input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: #FAFAFA;
+      transition: border-color 0.2s, background 0.2s;
+      -moz-appearance: textfield;
+    }
+    .input-group input[type="number"]::-webkit-inner-spin-button,
+    .input-group input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .input-group input[type="number"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: white;
+    }
+    .has-prefix { padding-left: 34px !important; }
+    .has-suffix { padding-right: 34px !important; }
+    .input-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .input-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+
+    /* hint under input */
+    .input-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    /* ── Checkbox Toggle ── */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-top: 0.25rem;
+    }
+    .toggle-wrap input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle-wrap label {
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.4;
+    }
+
+    /* ── Results ── */
+    .result-placeholder {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+    .result-placeholder .big { font-size: 3rem; margin-bottom: 0.75rem; }
+
+    .res-section {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin: 0.9rem 0 0.4rem;
+    }
+    .res-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.48rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.86rem;
+    }
+    .res-item:last-child { border-bottom: none; }
+    .res-item .lbl { color: var(--text-muted); flex: 1; padding-right: 8px; }
+    .res-item .val { font-weight: 600; font-family: 'SF Mono', 'Menlo', Consolas, monospace; white-space: nowrap; }
+    .res-item .val.pos { color: var(--success); }
+    .res-item .val.neg { color: var(--danger); }
+    .res-item .val.sub { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+
+    .res-subtotal {
+      background: #F0FDF4;
+      border-radius: 6px;
+      padding: 0.5rem 0.75rem;
+      margin: 0.4rem 0;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+      font-weight: 700;
+    }
+    .res-subtotal .lbl { color: var(--success); }
+    .res-subtotal .val { color: var(--success); font-family: 'SF Mono', 'Menlo', Consolas, monospace; }
+    .res-subtotal.deduct { background: #FFF5F5; }
+    .res-subtotal.deduct .lbl,
+    .res-subtotal.deduct .val { color: var(--danger); }
+
+    .res-total {
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      padding: 1rem 1.1rem;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .res-total .lbl { font-size: 0.95rem; font-weight: 700; color: var(--primary); }
+    .res-total .val { font-size: 1.4rem; font-weight: 800; color: var(--primary); font-family: 'SF Mono', 'Menlo', Consolas, monospace; }
+
+    .ref-box {
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      margin-top: 0.85rem;
+    }
+    .ref-box .res-section { margin-top: 0; }
+
+    /* ── Print Button ── */
+    .print-btn {
+      width: 100%;
+      padding: 10px;
+      background: white;
+      color: var(--primary);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: all 0.2s;
+    }
+    .print-btn:hover { background: var(--primary); color: white; }
+
+    /* ── Payslip Button ── */
+    .payslip-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--success);
+      color: white;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: all 0.2s;
+    }
+    .payslip-btn:hover { background: #047857; }
+
+    /* ── Disclaimer ── */
+    .disclaimer {
+      text-align: center;
+      padding: 0.75rem 1rem 2rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+
+    /* ── Store Selector ── */
+    .store-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #F0FDF4;
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .store-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--success);
+      white-space: nowrap;
+    }
+    .store-select {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1.5px solid var(--success);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      background: white;
+      cursor: pointer;
+      outline: none;
+    }
+    .store-select:focus { border-color: #047857; }
+
+    /* ── Month Selector ── */
+    .month-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #FFF7ED;
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .month-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #C2410C;
+      white-space: nowrap;
+    }
+    .month-picker { position: relative; flex: 1; }
+    .month-display-btn {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1.5px solid #F97316;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      background: white;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s;
+    }
+    .month-display-btn:hover { border-color: #C2410C; }
+    .month-dropdown {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      background: white;
+      border: 1.5px solid #F97316;
+      border-radius: var(--radius-sm);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      z-index: 200;
+      padding: 0.6rem;
+      min-width: 190px;
+    }
+    .month-dropdown-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .month-nav-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      color: var(--primary);
+      padding: 3px 8px;
+      border-radius: 4px;
+      line-height: 1;
+    }
+    .month-nav-btn:hover { background: var(--primary-light); }
+    .month-picker-year {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text);
+    }
+    .month-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .month-cell {
+      padding: 7px 2px;
+      border: none;
+      border-radius: 6px;
+      background: #F8FAFC;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .month-cell:hover { background: var(--primary-light); color: var(--primary); }
+    .month-cell.active { background: var(--primary); color: white; }
+
+    /* ── Person Selector ── */
+    .person-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--primary-light);
+      border-radius: var(--radius-sm);
+      padding: 0.65rem 0.85rem;
+      margin-bottom: 1.1rem;
+    }
+    .person-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+    .person-select {
+      flex: 1;
+      padding: 7px 10px;
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      background: white;
+      cursor: pointer;
+      outline: none;
+    }
+    .person-select:focus { border-color: var(--primary-hover); }
+    .person-saved-badge {
+      font-size: 0.72rem;
+      color: var(--success);
+      white-space: nowrap;
+      display: none;
+    }
+    .person-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    .person-btn.add {
+      background: var(--primary);
+      color: white;
+    }
+    .person-btn.add:hover { background: var(--primary-hover); }
+    .person-btn.del {
+      background: #FEE2E2;
+      color: var(--danger);
+    }
+    .person-btn.del:hover { background: var(--danger); color: white; }
+    .person-btn.del:disabled { opacity: 0.3; cursor: not-allowed; }
+    .person-btn.del:disabled:hover { background: #FEE2E2; color: var(--danger); }
+
+    /* ── Min wage warning ── */
+    input.warn { border-color: #F59E0B !important; background: #FFFBEB !important; }
+
+    /* ── 月薪資總覽 Summary Table ── */
+    .summary-wrap {
+      margin-bottom: 1.5rem;
+    }
+    .summary-month-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-left: 8px;
+      font-weight: 400;
+    }
+    .stbl {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+    }
+    .stbl th {
+      background: #EEF2FF;
+      color: var(--primary);
+      font-weight: 700;
+      text-align: center;
+      padding: 8px 10px;
+      border-bottom: 2px solid var(--primary);
+      white-space: nowrap;
+    }
+    .stbl th:first-child { text-align: left; }
+    .stbl td {
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .stbl td:first-child { text-align: left; font-weight: 600; }
+    .stbl td:nth-child(2) { text-align: center; }
+    .stbl tbody tr:hover td { background: #F8FAFC; }
+    .stbl .total-row td {
+      background: #EEF2FF;
+      font-weight: 700;
+      border-top: 2px solid var(--primary);
+      border-bottom: none;
+    }
+    .ft-badge {
+      background: #DCFCE7; color: #059669;
+      padding: 2px 7px; border-radius: 10px;
+      font-size: 0.72rem; font-weight: 600;
+    }
+    .pt-badge {
+      background: #FEF9C3; color: #B45309;
+      padding: 2px 7px; border-radius: 10px;
+      font-size: 0.72rem; font-weight: 600;
+    }
+
+    /* ── 查看模式橫幅 ── */
+    #view-mode-banner {
+      display: none;
+      position: sticky;
+      top: 0;
+      z-index: 500;
+      background: #1E293B;
+      color: white;
+      padding: 10px 20px;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.88rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    #view-mode-banner .vb-label {
+      background: #F59E0B;
+      color: #1E293B;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      font-size: 0.78rem;
+    }
+    #view-mode-banner .vb-contact {
+      opacity: 0.8;
+      flex: 1;
+    }
+    #view-mode-banner .vb-btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 0.83rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    #unlock-panel {
+      display: none;
+      background: #F8FAFC;
+      border-top: 1px solid #334155;
+      padding: 10px 20px;
+      align-items: center;
+      gap: 8px;
+    }
+    #unlock-panel input {
+      padding: 6px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: inherit;
+      width: 180px;
+    }
+    #unlock-error { color: var(--danger); font-size:0.8rem; display:none; }
+
+    /* ── 分享設定對話框 ── */
+    #share-dialog-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #share-dialog {
+      background: white;
+      border-radius: 16px;
+      padding: 2rem;
+      width: 360px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    #share-dialog h3 {
+      font-size: 1.1rem; font-weight: 700;
+      margin-bottom: 1.2rem;
+      color: var(--text);
+    }
+    .sd-label {
+      font-size: 0.78rem; font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      margin-top: 14px;
+    }
+    .sd-label:first-of-type { margin-top: 0; }
+    #share-dialog input[type="text"],
+    #share-dialog input[type="password"] {
+      width: 100%; padding: 9px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+    }
+    #share-dialog input:focus { border-color: var(--primary); }
+    .sd-hint { font-size:0.75rem; color:var(--text-muted); margin-top:4px; }
+    .sd-actions {
+      display: flex; gap: 8px; margin-top: 1.5rem;
+    }
+    .sd-actions button {
+      flex: 1; padding: 10px;
+      border: none; border-radius: 8px;
+      font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .sd-btn-ok  { background: var(--primary); color: white; }
+    .sd-btn-ok:hover { background: var(--primary-hover); }
+    .sd-btn-cancel { background: var(--bg); color: var(--text-muted); }
+
+    /* ── Print Styles ── */
+    @media print {
+      body { background: white; }
+      .header { background: #4F46E5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .mode-wrap, .input-card, .print-btn, .disclaimer { display: none !important; }
+      .main-grid { grid-template-columns: 1fr; }
+      .card { box-shadow: none; border: 1px solid var(--border); }
+    }
+  </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+
+<header class="header">
+  <h1>薪資計算器</h1>
+  <p>正職 & 工讀薪資試算 ｜ Taiwan Salary Calculator</p>
+</header>
+
+<div class="container">
+  <div class="mode-wrap">
+    <div class="mode-toggle">
+      <button id="btn-fulltime" class="mode-btn active" onclick="switchMode('fulltime')">
+        <span class="icon">🧑‍💼</span>
+        <span>正職<small class="sub">月薪計算</small></span>
+      </button>
+      <button id="btn-parttime" class="mode-btn" onclick="switchMode('parttime')">
+        <span class="icon">⏱️</span>
+        <span>工讀<small class="sub">時薪計算</small></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container main-grid">
+
+  <!-- ════ Input Card ════ -->
+  <div class="card input-card">
+
+    <!-- ╔══ 店家選單 ══╗ -->
+    <div class="store-wrap">
+      <span class="store-label">🏪 店家</span>
+      <select id="store-select" class="store-select" onchange="switchStore(this.value)">
+        <option value="林口店">林口店</option>
+        <option value="楊梅店">楊梅店</option>
+      </select>
+    </div>
+
+    <!-- ╔══ 月份選單 ══╗ -->
+    <div class="month-wrap">
+      <span class="month-label">📅 月份</span>
+      <div class="month-picker" id="month-picker">
+        <button class="month-display-btn" id="month-display-btn" onclick="toggleMonthPicker(event)">── 選擇月份 ──</button>
+        <div class="month-dropdown" id="month-dropdown" style="display:none">
+          <div class="month-dropdown-header">
+            <button class="month-nav-btn" onclick="changePickerYear(-1)">◀</button>
+            <span class="month-picker-year" id="picker-year-label"></span>
+            <button class="month-nav-btn" onclick="changePickerYear(1)">▶</button>
+          </div>
+          <div class="month-grid" id="month-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ╔══ 人員選單 ══╗ -->
+    <div class="person-wrap">
+      <span class="person-label">👤 員工</span>
+      <select id="person-select" class="person-select" onchange="switchPerson(this.value)">
+        <option value="">── 請選擇員工 ──</option>
+      </select>
+      <span class="person-saved-badge" id="saved-badge">✓ 已儲存</span>
+      <button class="person-btn add" onclick="addEmployee()" title="新增員工">＋</button>
+      <button class="person-btn del" id="del-btn" onclick="deleteEmployee()" title="刪除員工" disabled>🗑</button>
+    </div>
+
+    <!-- ╔══ 正職 ══╗ -->
+    <div id="fulltime-section">
+      <div class="card-title">🧑‍💼 正職薪資設定</div>
+
+      <!-- 基本薪資 -->
+      <div class="sec-label">基本薪資</div>
+      <div class="input-group">
+        <label>月薪 / 底薪</label>
+        <div class="input-wrap">
+          <span class="prefix">NT$</span>
+          <input type="number" id="ft-salary" class="has-prefix" placeholder="例：35,000" min="0" oninput="calcFulltime()">
+        </div>
+        <div class="input-hint" id="ft-hourly-hint"></div>
+      </div>
+
+      <!-- 津貼 & 獎金 -->
+      <div class="sec-label">津貼 & 獎金</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>責任獎金</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-duty" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>全勤獎金</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-attend" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>員工加給</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-emp" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>領導津貼</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-lead" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+      </div>
+      <div class="input-row" id="mgr-shift-row">
+        <div class="input-group">
+          <label>店長獎金</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-mgr" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+        <div class="input-group" id="shift-bonus-wrap" style="display:none">
+          <label>班別獎金</label>
+          <div class="input-wrap">
+            <span class="prefix">NT$</span>
+            <input type="number" id="ft-bonus-shift" class="has-prefix" placeholder="0" min="0" value="0" oninput="calcFulltime()">
+          </div>
+        </div>
+      </div>
+
+      <!-- 平日加班 -->
+      <div class="sec-label">平日延長工時 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.7rem">（底薪÷30÷8，小數無條件進入）</span></div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>前 2 小時（× 1.34）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-ot1" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>第 3 小時起（× 1.67）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-ot2" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 休息日加班 -->
+      <div class="sec-label">休息日加班</div>
+      <div style="max-width:50%;padding-right:0.3rem">
+        <div class="input-group">
+          <label>加班時數（× 1）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-ot3" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 假別扣除 -->
+      <div class="sec-label">假別扣除 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.7rem">（底薪÷30÷8，小數無條件進入）</span></div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>病假小時數（扣半時薪）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-sick" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">小時</span>
+          </div>
+          <div class="input-hint" id="ft-sick-hint"></div>
+        </div>
+        <div class="input-group">
+          <label>事假小時數（扣全時薪）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-personal" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">小時</span>
+          </div>
+          <div class="input-hint" id="ft-personal-hint"></div>
+        </div>
+      </div>
+
+      <!-- 勞健保 -->
+      <div class="sec-label">勞健保（員工自付額）</div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+        <label class="toggle-wrap">
+          <input type="checkbox" id="ft-labor-ins" checked onchange="calcFulltime()">
+          <label for="ft-labor-ins">勞工保險</label>
+        </label>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="ft-health-ins" checked onchange="calcFulltime()">
+          <label for="ft-health-ins">全民健保</label>
+        </label>
+      </div>
+
+      <!-- 工作天數 -->
+      <div class="sec-label">本月出勤</div>
+      <div style="max-width:50%;padding-right:0.3rem">
+        <div class="input-group">
+          <label>工作天數（預設滿月 30 天）</label>
+          <div class="input-wrap">
+            <input type="number" id="ft-workdays" class="has-suffix" value="30" min="1" max="31" oninput="calcFulltime()">
+            <span class="suffix">天</span>
+          </div>
+          <div class="input-hint" id="ft-workdays-hint"></div>
+        </div>
+      </div>
+
+      <!-- 到職日 & 年資 -->
+      <div class="sec-label">年資資訊</div>
+      <div class="input-group" style="max-width:50%">
+        <label>到職日</label>
+        <input type="date" id="ft-startdate" oninput="calcFulltime()"
+          style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;
+                 font-family:inherit;font-size:0.9rem;color:var(--text);background:#FAFAFA;
+                 transition:border-color 0.2s;">
+      </div>
+      <div id="ft-tenure-info" style="display:none;background:var(--primary-light);border-radius:10px;padding:12px 14px;margin-top:4px;font-size:0.85rem;line-height:1.9;margin-bottom:0.6rem;"></div>
+      <div id="ft-leave-wrap" style="display:none;">
+        <div class="input-row">
+          <div class="input-group">
+            <label>已使用特休（天）</label>
+            <div class="input-wrap">
+              <input type="number" id="ft-leave-used" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+              <span class="suffix">天</span>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>保留天數</label>
+            <div class="input-wrap">
+              <input type="number" id="ft-leave-kept" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+              <span class="suffix">天</span>
+            </div>
+          </div>
+        </div>
+        <div id="ft-leave-remain" style="font-size:0.82rem;color:var(--primary);font-weight:600;margin-top:-4px;margin-bottom:6px;padding-left:2px;"></div>
+      </div>
+    </div>
+
+    <!-- ╔══ 工讀 ══╗ -->
+    <div id="parttime-section" style="display:none">
+      <div class="card-title">⏱️ 工讀薪資設定</div>
+
+      <div class="sec-label">基本設定</div>
+      <div class="input-group">
+        <label>時薪（最低時薪 NT$183）</label>
+        <div class="input-wrap">
+          <span class="prefix">NT$</span>
+          <input type="number" id="pt-hourly" class="has-prefix" placeholder="例：183" min="0" oninput="calcParttime()">
+        </div>
+      </div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>本月正常工作時數</label>
+          <div class="input-wrap">
+            <input type="number" id="pt-hours" class="has-suffix" placeholder="80" min="0" oninput="calcParttime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>計算基準（日工時）</label>
+          <div class="input-wrap">
+            <input type="number" id="pt-hpd" class="has-suffix" value="8" min="1" max="12" oninput="calcParttime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">平日延長工時 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.7rem">（小數無條件進入）</span></div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>前 2 小時（× 1.34）</label>
+          <div class="input-wrap">
+            <input type="number" id="pt-ot1" class="has-suffix" value="0" min="0" oninput="calcParttime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>第 3 小時起（× 1.67）</label>
+          <div class="input-wrap">
+            <input type="number" id="pt-ot2" class="has-suffix" value="0" min="0" oninput="calcParttime()">
+            <span class="suffix">小時</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-label">勞健保</div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="pt-ins" onchange="calcParttime()">
+        <label for="pt-ins">計入勞健保自付額（月工時 ≥ 60 小時適用）</label>
+      </label>
+    </div>
+  </div>
+
+  <!-- ════ Results Card ════ -->
+  <div class="card results-card" id="results-card" data-mode="正職">
+    <div class="card-title">📊 計算結果</div>
+    <div id="results">
+      <div class="result-placeholder">
+        <div class="big">🧮</div>
+        <p>請輸入薪資資訊<br>結果即時顯示於此</p>
+      </div>
+    </div>
+    <button class="print-btn" id="print-btn" onclick="window.print()" style="display:none">
+      🖨️ 列印 / 存成 PDF
+    </button>
+    <button class="payslip-btn" id="payslip-btn" onclick="generatePayslip()" style="display:none">
+      📄 產生工資明細表 PDF
+    </button>
+  </div>
+
+</div>
+
+<div class="container" style="text-align:right;margin-bottom:0.75rem;">
+  <button id="share-btn" onclick="copyWorkspaceUrl()" style="
+    background:#0EA5E9;color:white;border:none;border-radius:8px;
+    padding:8px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;
+    box-shadow:0 2px 6px rgba(14,165,233,0.35);
+    font-family:inherit;transition:background 0.2s;">
+    🔗 複製分享連結
+  </button>
+</div>
+
+<div class="container summary-wrap">
+  <div class="card">
+    <div class="card-title">
+      📊 本月薪資總覽
+      <span class="summary-month-label" id="summary-month-label"></span>
+    </div>
+    <div id="summary-table-body">
+      <p style="text-align:center;color:var(--text-muted);padding:1.5rem;">尚無本月薪資資料</p>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <p class="disclaimer">
+    ※ 加班費依《勞動基準法》第24條：底薪÷30÷8 為時薪基礎，平日前2小時×1.34、第3小時起×1.67（小數無條件進入），休息日×1。<br>
+    ※ 病假扣除 = 時薪÷2（每小時），事假扣除 = 時薪（每小時），小數無條件進入。<br>
+    ※ 勞保費率 12.5%，員工自付20%（≈2.5%），投保上限 NT$45,800；健保費率 5.17%，受雇者自付30%。本計算器僅供試算參考。
+  </p>
+</div>
+
+<script>
+  // ════ Firebase 設定 ════
+  firebase.initializeApp({
+    apiKey: "AIzaSyCHfDhkRpMFxBCJ4Xp_vZYbLFgAumz8DXA",
+    authDomain: "salary-17257.firebaseapp.com",
+    databaseURL: "https://salary-17257-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "salary-17257",
+    storageBucket: "salary-17257.firebasestorage.app",
+    messagingSenderId: "523317981546",
+    appId: "1:523317981546:web:4ad9c55d311e3f0c643513"
+  });
+  const _db = firebase.database();
+
+  // ════ Workspace ID（URL 中的 ?w=XXXX）════
+  let _WID = new URLSearchParams(location.search).get('w');
+  if (!_WID) {
+    _WID = Math.random().toString(36).slice(2,9) + Math.random().toString(36).slice(2,9);
+    history.replaceState(null, '', '?w=' + _WID);
+  }
+  const _fbRef = () => _db.ref('w/' + _WID);
+
+  // ════ 本地快取 + localStorage 相容層 ════
+  let _FB = {};
+  const _ls = {
+    getItem: k => {
+      const v = _FB[k];
+      if (v == null) return null;
+      return typeof v === 'string' ? v : JSON.stringify(v);
+    },
+    setItem: (k, v) => {
+      let parsed;
+      try { parsed = JSON.parse(v); } catch { parsed = v; }
+      _FB[k] = parsed;
+      _fbRef().child(k).set(parsed);
+    },
+    removeItem: k => {
+      delete _FB[k];
+      _fbRef().child(k).remove();
+    },
+    get length() { return Object.keys(_FB).length; },
+    key: i => Object.keys(_FB)[i],
+  };
+
+  const MIN_WAGE_MONTHLY = 27470;
+  const MIN_WAGE_HOURLY  = 183;
+
+  // ════ 店家 & 員工設定 ════
+  const DEFAULT_EMPLOYEES = {
+    '林口店': { fulltime: ['陳可聖','李碧恩'], parttime: ['吳氏草','段清華','黃氏瑲','阮潘青孝'] },
+    '楊梅店': { fulltime: ['陳雅希','廖信安','柯懿庭','林芷潁'], parttime: [] },
+  };
+
+  function currentStore() { return document.getElementById('store-select').value; }
+  function currentMode()  { return document.getElementById('btn-fulltime').classList.contains('active') ? 'fulltime' : 'parttime'; }
+
+  // ════ 月份萬年曆 ════
+  let _selectedMonth = '';
+  let _pickerYear = new Date().getFullYear();
+
+  function currentMonth() { return _selectedMonth; }
+
+  function initMonthSelect() {
+    const now = new Date();
+    _pickerYear = now.getFullYear();
+    _selectedMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    _updatePickerDisplay();
+    _renderMonthGrid();
+  }
+
+  function _updatePickerDisplay() {
+    const [y, m] = _selectedMonth.split('-');
+    document.getElementById('month-display-btn').textContent = `${y}年${m}月`;
+    document.getElementById('picker-year-label').textContent = `${_pickerYear}年`;
+  }
+
+  function _renderMonthGrid() {
+    const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+    document.getElementById('month-grid').innerHTML = months.map((label, i) => {
+      const val = _pickerYear + '-' + String(i + 1).padStart(2, '0');
+      return `<button class="month-cell${val === _selectedMonth ? ' active' : ''}" onclick="selectPickerMonth('${val}')">${label}</button>`;
+    }).join('');
+  }
+
+  function toggleMonthPicker(e) {
+    e.stopPropagation();
+    const dd = document.getElementById('month-dropdown');
+    const isOpen = dd.style.display !== 'none';
+    dd.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) { _pickerYear = parseInt(_selectedMonth.split('-')[0]); _updatePickerDisplay(); _renderMonthGrid(); }
+  }
+
+  function changePickerYear(delta) {
+    _pickerYear += delta;
+    document.getElementById('picker-year-label').textContent = `${_pickerYear}年`;
+    _renderMonthGrid();
+  }
+
+  function selectPickerMonth(val) {
+    // 切月份前先把當月待存的修改立刻寫入，避免 debounce 尚未觸發就離開
+    if (typeof _flushAutoSave === 'function') _flushAutoSave();
+    _selectedMonth = val;
+    document.getElementById('month-dropdown').style.display = 'none';
+    _pickerYear = parseInt(val.split('-')[0]);
+    _updatePickerDisplay();
+    switchMonth(val);
+    renderSummaryTable();
+  }
+
+  function switchMonth(month) {
+    const person = document.getElementById('person-select').value;
+    if (!person) return;
+    loadPersonData(person, currentMode(), month);
+    if (currentMode() === 'fulltime') calcFulltime(); else calcParttime();
+  }
+
+  // 點外部關閉月份選單
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('month-picker').contains(e.target)) {
+      document.getElementById('month-dropdown').style.display = 'none';
+    }
+  });
+
+  // ════ 班別獎金顯示控制 ════
+  function updateShiftBonusVisibility() {
+    const show = currentStore() === '楊梅店' && currentMode() === 'fulltime';
+    document.getElementById('shift-bonus-wrap').style.display = show ? '' : 'none';
+  }
+
+  // ════ 員工名單 ════
+  function employeeListKey(store, mode) { return 'emplist_' + store + '_' + mode; }
+
+  function getEmployees(store, mode) {
+    const raw = _ls.getItem(employeeListKey(store, mode));
+    return raw ? JSON.parse(raw) : [...(DEFAULT_EMPLOYEES[store][mode] || [])];
+  }
+
+  function saveEmployees(store, mode, list) {
+    _ls.setItem(employeeListKey(store, mode), JSON.stringify(list));
+  }
+
+  function renderEmployeeSelect(store, mode, selectedName) {
+    const list = getEmployees(store, mode);
+    const sel = document.getElementById('person-select');
+    sel.innerHTML = '<option value="">── 請選擇員工 ──</option>';
+    list.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      if (name === selectedName) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    document.getElementById('del-btn').disabled = !sel.value;
+  }
+
+  function switchStore(store) {
+    renderEmployeeSelect(store, currentMode());
+    updateShiftBonusVisibility();
+    resetResults();
+    renderSummaryTable();
+  }
+
+  function addEmployee() {
+    const name = prompt('請輸入新員工姓名：');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    const store = currentStore();
+    const mode = currentMode();
+    const list = getEmployees(store, mode);
+    if (list.includes(trimmed)) { alert(`「${trimmed}」已存在！`); return; }
+    list.push(trimmed);
+    saveEmployees(store, mode, list);
+    renderEmployeeSelect(store, mode, trimmed);
+    switchPerson(trimmed);
+  }
+
+  function deleteEmployee() {
+    const sel = document.getElementById('person-select');
+    const person = sel.value;
+    if (!person) return;
+    if (!confirm(`確定要刪除「${person}」？\n該員工所有薪資記錄也會一併刪除。`)) return;
+    const store = currentStore();
+    const mode = currentMode();
+    saveEmployees(store, mode, getEmployees(store, mode).filter(n => n !== person));
+    const prefix = 'salary_' + store + '_' + person + '_';
+    Object.keys(_FB).filter(k => k.startsWith(prefix)).forEach(k => _ls.removeItem(k));
+    _ls.removeItem('last_' + store + '_' + person + '_fulltime');
+    _ls.removeItem('last_' + store + '_' + person + '_parttime');
+    renderEmployeeSelect(store, mode);
+    resetResults();
+  }
+
+  // ════ 人員記憶功能 ════
+  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-leave-used','ft-leave-kept'];
+  const PT_FIELDS = ['pt-hourly','pt-hours','pt-hpd','pt-ot1','pt-ot2'];
+
+  function storageKey(store, person, mode, month) {
+    return 'salary_' + store + '_' + person + '_' + mode + '_' + month;
+  }
+
+  function lastEditedKey(store, person, mode) {
+    return 'last_' + store + '_' + person + '_' + mode;
+  }
+
+  function clearFields(mode) {
+    if (mode === 'fulltime') {
+      document.getElementById('ft-salary').value = '';
+      ['ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift',
+       'ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal'].forEach(id => {
+        document.getElementById(id).value = '0';
+      });
+      document.getElementById('ft-workdays').value = '30';
+      document.getElementById('ft-startdate').value = '';
+      document.getElementById('ft-leave-used').value = '0';
+      document.getElementById('ft-leave-kept').value = '0';
+      document.getElementById('ft-labor-ins').checked = true;
+      document.getElementById('ft-health-ins').checked = true;
+      document.getElementById('ft-tenure-info').style.display = 'none';
+      document.getElementById('ft-leave-wrap').style.display = 'none';
+      document.getElementById('ft-leave-remain').textContent = '';
+      document.getElementById('ft-workdays-hint').textContent = '';
+      const ae = document.getElementById('ft-bonus-attend');
+      ae.disabled = false; ae.style.background = ''; ae.title = '';
+    } else {
+      document.getElementById('pt-hourly').value = '';
+      document.getElementById('pt-hours').value = '';
+      document.getElementById('pt-hpd').value = '8';
+      document.getElementById('pt-ot1').value = '0';
+      document.getElementById('pt-ot2').value = '0';
+      document.getElementById('pt-ins').checked = false;
+    }
+  }
+
+  function savePersonData() {
+    const person = document.getElementById('person-select').value;
+    if (!person) return;
+    const store = currentStore();
+    const mode  = currentMode();
+    const month = currentMonth();
+    const data  = {};
+    if (mode === 'fulltime') {
+      FT_FIELDS.forEach(id => { data[id] = document.getElementById(id).value; });
+      data['ft-labor-ins'] = document.getElementById('ft-labor-ins').checked;
+      data['ft-health-ins'] = document.getElementById('ft-health-ins').checked;
+      data['ft-startdate']  = document.getElementById('ft-startdate').value;
+    } else {
+      PT_FIELDS.forEach(id => { data[id] = document.getElementById(id).value; });
+      data['pt-ins'] = document.getElementById('pt-ins').checked;
+    }
+    data._savedByUser = true; // 標記為使用者主動儲存
+    _ls.setItem(storageKey(store, person, mode, month), JSON.stringify(data));
+    _ls.setItem(lastEditedKey(store, person, mode), month);
+
+    // 到職日同步至該員工所有月份
+    if (mode === 'fulltime' && data['ft-startdate']) {
+      const prefix = storageKey(store, person, mode, '').replace(/_$/, '_');
+      Object.keys(_FB).filter(k => k.startsWith(prefix) && k !== storageKey(store, person, mode, month)).forEach(k => {
+        try {
+          const d = JSON.parse(_ls.getItem(k));
+          if (d && d['ft-startdate'] !== data['ft-startdate']) {
+            d['ft-startdate'] = data['ft-startdate'];
+            _ls.setItem(k, JSON.stringify(d));
+          }
+        } catch(e) {}
+      });
+    }
+
+    renderSummaryTable();
+    const badge = document.getElementById('saved-badge');
+    badge.style.display = 'inline';
+    clearTimeout(badge._t);
+    badge._t = setTimeout(() => { badge.style.display = 'none'; }, 1500);
+  }
+
+  // 切到新月份時攜帶的欄位（年資資訊、基本薪資、津貼獎金），其餘全部清空
+  const FT_CARRY_FIELDS = new Set([
+    'ft-salary',
+    'ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift',
+    'ft-leave-used','ft-leave-kept'
+  ]);
+  const PT_CARRY_FIELDS = new Set(['pt-hourly','pt-hpd']);
+
+  function _prevMonth(month) {
+    const [y, m] = month.split('-').map(Number);
+    return m === 1 ? (y - 1) + '-12' : y + '-' + String(m - 1).padStart(2, '0');
+  }
+
+  function loadPersonData(person, mode, month) {
+    const store = currentStore();
+    const raw = _ls.getItem(storageKey(store, person, mode, month));
+
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data._savedByUser) {
+        // 使用者主動儲存的資料，直接載入
+        if (mode === 'fulltime') {
+          FT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
+          document.getElementById('ft-labor-ins').checked = data['ft-labor-ins'] ?? true;
+          document.getElementById('ft-health-ins').checked = data['ft-health-ins'] ?? true;
+          document.getElementById('ft-startdate').value = data['ft-startdate'] || '';
+        } else {
+          PT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
+          document.getElementById('pt-ins').checked = data['pt-ins'] ?? false;
+        }
+        return;
+      }
+      // _savedByUser 不存在（舊版自動儲存的殘留資料）→ 視為無資料，重新執行帶入
+    }
+
+    // 沒有當月資料，往前找最近一個月份的資料作為預設值
+    let prevRaw = null;
+    let searchMonth = month;
+    for (let i = 0; i < 24; i++) {
+      searchMonth = _prevMonth(searchMonth);
+      prevRaw = _ls.getItem(storageKey(store, person, mode, searchMonth));
+      if (prevRaw) break;
+    }
+
+    if (!prevRaw) { clearFields(mode); return; }
+
+    // 先清空所有欄位，再帶入允許攜帶的欄位
+    clearFields(mode);
+    const prev = JSON.parse(prevRaw);
+    if (mode === 'fulltime') {
+      FT_CARRY_FIELDS.forEach(id => {
+        if (prev[id] !== undefined) document.getElementById(id).value = prev[id];
+      });
+      // 年資資訊
+      document.getElementById('ft-startdate').value = prev['ft-startdate'] || '';
+      document.getElementById('ft-labor-ins').checked = prev['ft-labor-ins'] ?? true;
+      document.getElementById('ft-health-ins').checked = prev['ft-health-ins'] ?? true;
+    } else {
+      PT_CARRY_FIELDS.forEach(id => {
+        if (prev[id] !== undefined) document.getElementById(id).value = prev[id];
+      });
+      document.getElementById('pt-ins').checked = prev['pt-ins'] ?? false;
+    }
+  }
+
+  function switchPerson(person) {
+    document.getElementById('del-btn').disabled = !person;
+    if (!person) { resetResults(); return; }
+    // 不改動月份，直接以當前選定月份載入該員工資料
+    loadPersonData(person, currentMode(), currentMonth());
+    if (currentMode() === 'fulltime') calcFulltime(); else calcParttime();
+    renderSummaryTable();
+  }
+
+  // ════ Firebase 即時監聽 ════
+  let _fbReady = false;
+  _fbRef().on('value', snap => {
+    _FB = snap.val() || {};
+    if (!_fbReady) {
+      _fbReady = true;
+      // 初始化
+      initMonthSelect();
+      updateShiftBonusVisibility();
+      switchStore(currentStore());
+      renderSummaryTable();
+    } else {
+      // 其他人更新資料，同步 UI
+      const store  = currentStore();
+      const mode   = currentMode();
+      const person = document.getElementById('person-select').value;
+      renderEmployeeSelect(store, mode, person);
+      renderSummaryTable();
+      if (person) {
+        loadPersonData(person, mode, currentMonth());
+        if (mode === 'fulltime') calcFulltime(); else calcParttime();
+      }
+    }
+  });
+
+  function laborIns(salary) {
+    const base = Math.min(Math.max(salary, MIN_WAGE_MONTHLY), 45800);
+    return Math.round(base * 0.125 * 0.20);
+  }
+  function healthIns(salary) {
+    const base = Math.max(salary, MIN_WAGE_MONTHLY);
+    return Math.round(base * 0.0517 * 0.30);
+  }
+  function ntd(amount) {
+    return 'NT$ ' + Math.round(amount).toLocaleString('zh-TW');
+  }
+  function row(label, value, cls) {
+    cls = cls || '';
+    return `<div class="res-item"><span class="lbl">${label}</span><span class="val ${cls}">${value}</span></div>`;
+  }
+  function subtotalRow(label, value, type) {
+    const cls = type === 'deduct' ? 'deduct' : '';
+    return `<div class="res-subtotal ${cls}"><span class="lbl">${label}</span><span class="val">${value}</span></div>`;
+  }
+
+  function switchMode(mode) {
+    document.getElementById('fulltime-section').style.display = mode === 'fulltime' ? 'block' : 'none';
+    document.getElementById('parttime-section').style.display = mode === 'parttime' ? 'block' : 'none';
+    document.getElementById('btn-fulltime').classList.toggle('active', mode === 'fulltime');
+    document.getElementById('btn-parttime').classList.toggle('active', mode === 'parttime');
+    document.getElementById('results-card').dataset.mode = mode === 'fulltime' ? '正職' : '工讀';
+    renderEmployeeSelect(currentStore(), mode);
+    updateShiftBonusVisibility();
+    resetResults();
+    renderSummaryTable();
+    const person = document.getElementById('person-select').value;
+    if (person) {
+      loadPersonData(person, mode, currentMonth());
+      if (mode === 'fulltime') calcFulltime(); else calcParttime();
+    }
+  }
+
+  function resetResults() {
+    document.getElementById('results').innerHTML = `
+      <div class="result-placeholder">
+        <div class="big">🧮</div>
+        <p>請輸入薪資資訊<br>結果即時顯示於此</p>
+      </div>`;
+    document.getElementById('print-btn').style.display = 'none';
+    document.getElementById('payslip-btn').style.display = 'none';
+  }
+
+  function v(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+  // ════ 分享（複製目前連結）════
+  function copyWorkspaceUrl() {
+    const url = window.location.href.split('#')[0];
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = document.getElementById('share-btn');
+      btn.textContent = '✓ 已複製！';
+      setTimeout(() => { btn.textContent = '🔗 複製分享連結'; }, 2000);
+    }).catch(() => {
+      prompt('請手動複製此連結：', url);
+    });
+  }
+
+  // ════ 工資明細表產生 ════
+  function generatePayslip() {
+    const person = document.getElementById('person-select').value;
+    const sal    = v('ft-salary');
+    if (!person || !sal) { alert('請先完成薪資計算'); return; }
+
+    const monthVal = currentMonth();
+    const [ys, ms] = monthVal.split('-');
+    const year = parseInt(ys), month = parseInt(ms);
+    const rocYear = year - 1911;
+    const mp      = String(month).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
+
+    const hourly    = Math.ceil(sal / 30 / 8);
+    const workdays  = parseFloat(document.getElementById('ft-workdays').value) || 30;
+    const basePay   = workdays < 30 ? Math.round(sal * workdays / 30) : sal;
+    const ot1h = v('ft-ot1'), ot2h = v('ft-ot2'), ot3h = v('ft-ot3');
+    const weekdayOT = Math.ceil(hourly * 1.34) * ot1h + Math.ceil(hourly * 1.67) * ot2h;
+    const restdayOT = hourly * ot3h;
+    const sub1      = basePay + weekdayOT + restdayOT;
+
+    const labI  = document.getElementById('ft-labor-ins').checked  ? Math.round(laborIns(sal) * workdays / 30) : 0;
+    const hthI  = document.getElementById('ft-health-ins').checked ? healthIns(sal) : 0;
+    const sickD = Math.ceil(hourly / 2) * v('ft-sick');
+    const persD = hourly * v('ft-personal');
+    const sub2  = labI + hthI + sickD + persD;
+    const net   = Math.ceil((sub1 - sub2) / 10) * 10;
+    const bonus = v('ft-bonus-duty') + v('ft-bonus-attend') + v('ft-bonus-emp') +
+                  v('ft-bonus-lead') + v('ft-bonus-mgr')   + v('ft-bonus-shift');
+
+    const fmt = n => n > 0 ? n.toLocaleString('zh-TW') : '';
+
+    // ── Cell builder ──
+    const B  = 'border:0.5pt solid #000;';
+    // Table 1 (larger columns) — 3pt horizontal padding
+    const td = (content, style='', attrs='') =>
+      `<td style="${B}padding:1pt 3pt;vertical-align:middle;${style}"${attrs}>${content}</td>`;
+    const rcat = (rowspan, text) =>
+      `<td rowspan="${rowspan}" style="${B}padding:1pt 3pt;text-align:center;vertical-align:middle;">${text}</td>`;
+    // Table 2 (narrower columns) — 1pt horizontal padding to prevent wrapping
+    const td2 = (content, style='', attrs='') =>
+      `<td style="${B}padding:1pt 1pt;vertical-align:middle;${style}"${attrs}>${content}</td>`;
+    const rcat2 = (rowspan, text) =>
+      `<td rowspan="${rowspan}" style="${B}padding:1pt 1pt;text-align:center;vertical-align:middle;">${text}</td>`;
+
+    // ── Date string (ROC format) ──
+    const dateRange = `領薪起迄日期：　${rocYear}／${month}／1　－　${rocYear}／${month}／${lastDay}`;
+
+    // ══════════════════════════════════════
+    //  Table 1: 公司留存  21行 × 4欄
+    //  欄寬: 97 / 89 / 160 / 66 pt
+    //  行高: [21,16.5,17.25,17.25,16.5,16.5,16.5,17.25,
+    //         16.5,16.5,16.5,16.5,16.5,17.25,17.25,17.25,
+    //         17.25,17.25,17.25,17.25,17.25]
+    // ══════════════════════════════════════
+    const h1 = [21,16.5,17.25,17.25,16.5,16.5,16.5,17.25,16.5,16.5,16.5,16.5,16.5,17.25,17.25,17.25,17.25,17.25,17.25,17.25,17.25];
+    function tr1(i, content) { return `<tr style="height:${h1[i]}pt">${content}</tr>`; }
+
+    const table1 = `
+<table style="border-collapse:collapse;font-family:'Times New Roman',Times,serif;font-size:12pt;table-layout:fixed;">
+<colgroup><col style="width:97pt"><col style="width:89pt"><col style="width:160pt"><col style="width:66pt"></colgroup>
+${tr1(0,  td(`${rocYear}年${mp}月　工資明細表`,  'text-align:center;font-size:16pt;', ' colspan="4"'))}
+${tr1(1,  td(`姓名：${person}`, '', ' colspan="3"') +
+          td('公司留存', 'text-align:right;font-size:10pt;'))}
+${tr1(2,  td(dateRange, 'font-size:10pt;', ' colspan="4"'))}
+${tr1(3,  td('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
+          td('金額', 'text-align:center;font-weight:600;', ' colspan="2"'))}
+${tr1(4,  rcat(4,'應領金額') +
+          td(workdays < 30 ? `月薪（${workdays}天）` : '月薪') +
+          td(basePay.toLocaleString('zh-TW'), 'text-align:right;', ' colspan="2"'))}
+${tr1(5,  td('平日加班') + td(fmt(weekdayOT), 'text-align:right;', ' colspan="2"'))}
+${tr1(6,  td('休假日加班') + td(fmt(restdayOT), 'text-align:right;', ' colspan="2"'))}
+${tr1(7,  td('小計(1)') + td(sub1.toLocaleString('zh-TW'), 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
+${tr1(8,  rcat(6,'扣款金額') +
+          td('勞工保險費') +
+          td(fmt(labI), 'text-align:right;', ' colspan="2"'))}
+${tr1(9,  td('健康保險費') + td(fmt(hthI),  'text-align:right;', ' colspan="2"'))}
+${tr1(10, td('病假扣款')   + td(fmt(sickD), 'text-align:right;', ' colspan="2"'))}
+${tr1(11, td('事假扣款')   + td(fmt(persD), 'text-align:right;', ' colspan="2"'))}
+${tr1(12, td('其他扣項')   + td('', '',     ' colspan="2"'))}
+${tr1(13, td('小計(2)')    + td(sub2 > 0 ? sub2.toLocaleString('zh-TW') : '', 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
+${tr1(14, td('實領金額', 'text-align:center;') +
+          td('(1)-(2)=') +
+          td(net.toLocaleString('zh-TW'), 'text-align:right;font-weight:700;', ' colspan="2"'))}
+${tr1(15, td('備註', 'text-align:center;') +
+          td('本人確認薪資明細無誤，並簽名簽收', 'font-size:10pt;', ' colspan="3"'))}
+${tr1(16, td('具領人簽章：', '', ' colspan="2"') +
+          td('給付日期：　　　年　　　月　　　日', 'font-size:10pt;', ' colspan="2"'))}
+<tr style="height:${h1[17]}pt">
+  <td colspan="4" style="border-left:0.5pt solid #000;border-right:0.5pt solid #000;border-top:0.5pt solid #000;border-bottom:0.5pt solid #000;padding:0 3pt;font-size:7pt;text-align:center;letter-spacing:1pt;vertical-align:middle;">
+    ――――――――――――――――――――――――――――――――――――――
+  </td>
+</tr>
+${tr1(18, td('月份獎金', '', ' colspan="2"') +
+          td(fmt(bonus), 'text-align:right;', ' colspan="2"'))}
+${tr1(19, td('具領人簽章：', '', ' colspan="2"') +
+          td('給付日期：　　　年　　　月　　　日', 'font-size:10pt;', ' colspan="2"'))}
+${tr1(20, td('', '', ' colspan="4"'))}
+</table>`;
+
+    // ══════════════════════════════════════
+    //  Table 2: 員工  16行 × 4欄
+    //  欄寬: 70 / 64 / 87 / 48 pt
+    //  行高: [23.66,18.59,19.44,19.44,18.59,18.59,18.59,19.44,
+    //         18.59,18.59,18.59,18.59,18.59,19.44,19.44,19.44]
+    // ══════════════════════════════════════
+    const h2 = [23.66,18.59,19.44,19.44,18.59,18.59,18.59,19.44,18.59,18.59,18.59,18.59,18.59,19.44,19.44,19.44];
+    function tr2(i, content) { return `<tr style="height:${h2[i]}pt">${content}</tr>`; }
+
+    const table2 = `
+<table style="border-collapse:collapse;font-family:'Times New Roman',Times,serif;font-size:11pt;table-layout:fixed;">
+<colgroup><col style="width:70pt"><col style="width:64pt"><col style="width:87pt"><col style="width:48pt"></colgroup>
+${tr2(0,  td2(`${rocYear}年${mp}月　工資明細表`, 'text-align:center;font-size:15pt;', ' colspan="4"'))}
+${tr2(1,  td2(`姓名：${person}`, '', ' colspan="4"'))}
+${tr2(2,  td2(dateRange, 'font-size:9pt;', ' colspan="4"'))}
+${tr2(3,  td2('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
+          td2('金額', 'text-align:center;font-weight:600;', ' colspan="2"'))}
+${tr2(4,  rcat2(4,'應領金額') +
+          td2(workdays < 30 ? `月薪（${workdays}天）` : '月薪') +
+          td2(basePay.toLocaleString('zh-TW'), 'text-align:right;', ' colspan="2"'))}
+${tr2(5,  td2('平日加班') + td2(fmt(weekdayOT), 'text-align:right;', ' colspan="2"'))}
+${tr2(6,  td2('休假日加班') + td2(fmt(restdayOT), 'text-align:right;', ' colspan="2"'))}
+${tr2(7,  td2('小計(1)') + td2(sub1.toLocaleString('zh-TW'), 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
+${tr2(8,  rcat2(6,'扣款金額') +
+          td2('勞工保險費') +
+          td2(fmt(labI), 'text-align:right;', ' colspan="2"'))}
+${tr2(9,  td2('健康保險費') + td2(fmt(hthI),  'text-align:right;', ' colspan="2"'))}
+${tr2(10, td2('病假扣款')   + td2(fmt(sickD), 'text-align:right;', ' colspan="2"'))}
+${tr2(11, td2('事假扣款')   + td2(fmt(persD), 'text-align:right;', ' colspan="2"'))}
+${tr2(12, td2('其他扣項')   + td2('', '',     ' colspan="2"'))}
+${tr2(13, td2('小計(2)')    + td2(sub2 > 0 ? sub2.toLocaleString('zh-TW') : '', 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
+${tr2(14, td2('實領金額', 'text-align:center;') +
+          td2('(1)-(2)=') +
+          td2(net.toLocaleString('zh-TW'), 'text-align:right;font-weight:700;', ' colspan="2"'))}
+${tr2(15, td2('備註', 'text-align:center;') +
+          td2('本人確認薪資明細無誤，並簽名簽收', 'font-size:9pt;', ' colspan="3"'))}
+</table>`;
+
+    const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>${rocYear}年${mp}月 工資明細表 - ${person}</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:white; }
+.page { display:flex; align-items:flex-start; }
+@media screen { body { padding:20px; } .gap { width:80pt; } }
+@media print  {
+  @page { size:A4 landscape; margin:1cm; }
+  .gap { width:104pt; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="t1">${table1}</div>
+  <div class="gap"></div>
+  <div class="t2">${table2}</div>
+</div>
+<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400));<\/script>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=1100,height=750');
+    if (w) { w.document.write(html); w.document.close(); }
+    else alert('請允許彈出視窗（popup）以產生明細表');
+  }
+
+  // ════ 月薪資總覽 ════
+  function computeFTSummary(data) {
+    const sal = parseFloat(data['ft-salary']) || 0;
+    if (!sal) return null;
+    const workdays = parseFloat(data['ft-workdays']) || 30;
+    const basePay  = workdays < 30 ? Math.round(sal * workdays / 30) : sal;
+    const hourly   = Math.ceil(sal / 30 / 8);
+    const ot1h   = parseFloat(data['ft-ot1']) || 0;
+    const ot2h   = parseFloat(data['ft-ot2']) || 0;
+    const ot3h   = parseFloat(data['ft-ot3']) || 0;
+    const otPay  = Math.ceil(hourly * 1.34) * ot1h + Math.ceil(hourly * 1.67) * ot2h + hourly * ot3h;
+    const sub1   = basePay + otPay;
+    const labIns  = data['ft-labor-ins'] === 'true' || data['ft-labor-ins'] === true;
+    const hthIns  = data['ft-health-ins'] === 'true' || data['ft-health-ins'] === true;
+    const labI   = labIns ? Math.round(laborIns(sal) * workdays / 30) : 0;
+    const hthI   = hthIns ? healthIns(sal) : 0;
+    const sickD  = Math.ceil(hourly / 2) * (parseFloat(data['ft-sick']) || 0);
+    const persD  = hourly * (parseFloat(data['ft-personal']) || 0);
+    const sub2   = labI + hthI + sickD + persD;
+    const net    = Math.ceil((sub1 - sub2) / 10) * 10;
+    const bonus  = ['ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift']
+                    .reduce((s, k) => s + (parseFloat(data[k]) || 0), 0);
+    return { sal: basePay, ot: otPay, bonus, deduct: sub2, net, total: net + bonus };
+  }
+
+  function computePTSummary(data) {
+    const hr  = parseFloat(data['pt-hourly']) || 0;
+    const hrs = parseFloat(data['pt-hours'])  || 0;
+    if (!hr || !hrs) return null;
+    const base   = hr * hrs;
+    const ot1Pay = Math.ceil(hr * 1.34) * (parseFloat(data['pt-ot1']) || 0);
+    const ot2Pay = Math.ceil(hr * 1.67) * (parseFloat(data['pt-ot2']) || 0);
+    const gross  = base + ot1Pay + ot2Pay;
+    const ins    = data['pt-ins'] === 'true' || data['pt-ins'] === true;
+    const labI   = ins ? laborIns(gross) : 0;
+    const hthI   = ins ? healthIns(gross) : 0;
+    const net    = Math.ceil((gross - labI - hthI) / 10) * 10;
+    return { sal: base, ot: ot1Pay + ot2Pay, bonus: 0, deduct: labI + hthI, net, total: net };
+  }
+
+  function renderSummaryTable() {
+    const store = currentStore();
+    const month = currentMonth();
+    const [ys, ms] = month.split('-');
+    const rocYear  = parseInt(ys) - 1911;
+    const mp       = String(parseInt(ms)).padStart(2, '0');
+
+    document.getElementById('summary-month-label').textContent = `— ${rocYear}年${mp}月`;
+
+    const ftEmps = getEmployees(store, 'fulltime');
+    const ptEmps = getEmployees(store, 'parttime');
+
+    const rows = [];
+    let totSal = 0, totOT = 0, totBonus = 0, totDeduct = 0, totNet = 0, totTotal = 0;
+    let filledCount = 0;
+
+    const addRow = (name, mode, compute) => {
+      // 優先用當月資料，沒有則用最後編輯月份的資料
+      let raw = _ls.getItem(storageKey(store, name, mode, month));
+      let isCurrent = true;
+      if (!raw) {
+        const lastMonth = _ls.getItem(lastEditedKey(store, name, mode));
+        if (lastMonth) {
+          raw = _ls.getItem(storageKey(store, name, mode, lastMonth));
+          if (raw) isCurrent = false;
+        }
+      }
+      if (!raw) {
+        rows.push({ name, mode, empty: true });
+        return;
+      }
+      const r = compute(JSON.parse(raw));
+      if (!r) {
+        rows.push({ name, mode, empty: true });
+        return;
+      }
+      rows.push({ name, mode, ...r, empty: false, isCurrent });
+      filledCount++;
+      if (isCurrent) {
+        totSal += r.sal; totOT += r.ot; totBonus += r.bonus;
+        totDeduct += r.deduct; totNet += r.net; totTotal += r.total;
+      }
+    };
+
+    ftEmps.forEach(n => addRow(n, 'fulltime', computeFTSummary));
+    ptEmps.forEach(n => addRow(n, 'parttime', computePTSummary));
+
+    const wrap = document.getElementById('summary-table-body');
+    if (rows.length === 0) {
+      wrap.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1.5rem 0;">尚無員工資料</p>';
+      return;
+    }
+
+    const N = n => (n && n > 0) ? n.toLocaleString('zh-TW') : '—';
+    const M = n => 'NT$\u00a0' + n.toLocaleString('zh-TW');
+
+    const bodyRows = rows.map(r => {
+      const badge = `<span class="${r.mode === 'fulltime' ? 'ft' : 'pt'}-badge">${r.mode === 'fulltime' ? '正職' : '工讀'}</span>`;
+      if (r.empty) return `
+        <tr style="color:var(--text-muted);font-style:italic;">
+          <td>${r.name}</td>
+          <td>${badge}</td>
+          <td colspan="6" style="text-align:center;font-size:0.8rem;">尚無資料</td>
+        </tr>`;
+      const dim = r.isCurrent ? '' : 'opacity:0.55;';
+      const oldTag = r.isCurrent ? '' : `<span style="font-size:0.68rem;background:#F1F5F9;color:var(--text-muted);padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle;">非當月</span>`;
+      return `
+        <tr style="${dim}">
+          <td>${r.name}${oldTag}</td>
+          <td>${badge}</td>
+          <td>${N(r.sal)}</td>
+          <td>${N(r.ot)}</td>
+          <td>${N(r.bonus)}</td>
+          <td style="color:var(--danger)">${r.deduct > 0 ? '－' + r.deduct.toLocaleString('zh-TW') : '—'}</td>
+          <td style="font-weight:600">${M(r.net)}</td>
+          <td style="font-weight:700;color:var(--primary)">${M(r.total)}</td>
+        </tr>`;
+    }).join('');
+
+    const currentCount = rows.filter(r => !r.empty && r.isCurrent).length;
+    const totalRow = filledCount > 0 ? `
+      <tr class="total-row">
+        <td colspan="2">當月合計（${currentCount} 人）</td>
+        <td>${N(totSal)}</td>
+        <td>${N(totOT)}</td>
+        <td>${N(totBonus)}</td>
+        <td style="color:var(--danger)">${totDeduct > 0 ? '－' + totDeduct.toLocaleString('zh-TW') : '—'}</td>
+        <td>${M(totNet)}</td>
+        <td style="color:var(--primary)">${M(totTotal)}</td>
+      </tr>` : '';
+
+    wrap.innerHTML = `
+      <table class="stbl">
+        <thead>
+          <tr>
+            <th>姓名</th>
+            <th>類別</th>
+            <th>基本薪</th>
+            <th>加班費</th>
+            <th>月份獎金</th>
+            <th>扣款</th>
+            <th>實領</th>
+            <th>合計領</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+          ${totalRow}
+        </tbody>
+      </table>`;
+  }
+
+  // ════ 正職計算 ════
+  function calcFulltime() {
+    const salary = v('ft-salary');
+
+    // 事假有填 → 全勤獎金強制歸零並鎖定
+    const attendEl = document.getElementById('ft-bonus-attend');
+    const personalVal = v('ft-personal');
+    if (personalVal > 0) {
+      attendEl.value = '0';
+      attendEl.disabled = true;
+      attendEl.style.background = '#F1F5F9';
+      attendEl.title = '有事假時全勤獎金自動歸零';
+    } else {
+      attendEl.disabled = false;
+      attendEl.style.background = '';
+      attendEl.title = '';
+    }
+
+    if (!salary) {
+      resetResults();
+      document.getElementById('ft-hourly-hint').textContent = '';
+      document.getElementById('ft-sick-hint').textContent = '';
+      document.getElementById('ft-personal-hint').textContent = '';
+      return;
+    }
+
+    // 時薪基礎：底薪 ÷ 30 ÷ 8，小數無條件進入
+    const hourly    = Math.ceil(salary / 30 / 8);
+
+    // 工作天數比例薪資
+    const workdays  = parseFloat(document.getElementById('ft-workdays').value) || 30;
+    const basePay   = workdays < 30 ? Math.round(salary * workdays / 30) : salary;
+    const wdHint    = document.getElementById('ft-workdays-hint');
+    if (workdays < 30) {
+      wdHint.textContent = `比例薪資：NT$${salary.toLocaleString('zh-TW')} × ${workdays}/30 = NT$${basePay.toLocaleString('zh-TW')}`;
+    } else {
+      wdHint.textContent = '';
+    }
+
+    document.getElementById('ft-hourly-hint').textContent =
+      `換算時薪基礎：NT$${salary.toLocaleString('zh-TW')} ÷ 30 ÷ 8 = NT$${hourly.toLocaleString('zh-TW')} / 小時`;
+
+    // 到職日 & 年資
+    const startDateVal = document.getElementById('ft-startdate').value;
+    const tenureDiv    = document.getElementById('ft-tenure-info');
+    if (startDateVal) {
+      const start   = new Date(startDateVal);
+      const today   = new Date();
+      today.setHours(0,0,0,0);
+      let years  = today.getFullYear() - start.getFullYear();
+      let months = today.getMonth()    - start.getMonth();
+      let days   = today.getDate()     - start.getDate();
+      if (days   < 0) { months--; }
+      if (months < 0) { years--; months += 12; }
+      const totalMonths = years * 12 + (months < 0 ? 0 : months);
+
+      // 下次週年日
+      const nextAnniv = new Date(start);
+      nextAnniv.setFullYear(today.getFullYear());
+      if (nextAnniv <= today) nextAnniv.setFullYear(today.getFullYear() + 1);
+      const daysToAnniv = Math.ceil((nextAnniv - today) / 86400000);
+
+      // 特休天數（勞基法第38條）
+      let annualLeave = 0;
+      if      (totalMonths < 6)   annualLeave = 0;
+      else if (totalMonths < 12)  annualLeave = 3;
+      else if (years < 2)         annualLeave = 7;
+      else if (years < 3)         annualLeave = 10;
+      else if (years < 5)         annualLeave = 14;
+      else if (years < 10)        annualLeave = 15;
+      else                        annualLeave = Math.min(15 + (years - 10), 30);
+
+      const yrStr = years > 0 ? `${years} 年` : '';
+      const moStr = (months > 0 || years === 0) ? `${Math.max(months, 0)} 個月` : '';
+
+      // 特休使用狀況
+      const leaveWrap   = document.getElementById('ft-leave-wrap');
+      const leaveRemain = document.getElementById('ft-leave-remain');
+      leaveWrap.style.display = 'block';
+      const leaveUsed = parseFloat(document.getElementById('ft-leave-used').value) || 0;
+      const leaveKept = parseFloat(document.getElementById('ft-leave-kept').value) || 0;
+      const totalLeave = annualLeave + leaveKept;
+      const leaveLeft  = Math.max(totalLeave - leaveUsed, 0);
+      const leaveColor = leaveLeft <= 0 ? 'var(--danger)' : 'var(--primary)';
+      leaveRemain.innerHTML =
+        `剩餘特休：<span style="color:${leaveColor};font-size:1rem;">${leaveLeft} 天</span>` +
+        `　（本年 ${annualLeave} 天` +
+        (leaveKept > 0 ? ` ＋ 保留 ${leaveKept} 天 ＝ 共 ${totalLeave} 天` : ``) +
+        ` ｜ 已用 ${leaveUsed} 天）`;
+
+      tenureDiv.style.display = 'block';
+      tenureDiv.innerHTML =
+        `📅 到職日：${startDateVal}　｜　年資：${yrStr}${moStr}<br>` +
+        `🏖 本年度特休：<strong>${annualLeave} 天</strong>` +
+        (daysToAnniv <= 365 ? `　｜　距下次週年日：${daysToAnniv} 天` : '');
+    } else {
+      tenureDiv.style.display = 'none';
+      document.getElementById('ft-leave-wrap').style.display = 'none';
+      document.getElementById('ft-leave-remain').textContent = '';
+    }
+
+    // 獎金
+    const bonusDuty   = v('ft-bonus-duty');
+    const bonusAttend = v('ft-bonus-attend');
+    const bonusEmp    = v('ft-bonus-emp');
+    const bonusLead   = v('ft-bonus-lead');
+    const bonusMgr    = v('ft-bonus-mgr');
+    const bonusShift  = v('ft-bonus-shift');
+    const totalBonus  = bonusDuty + bonusAttend + bonusEmp + bonusLead + bonusMgr + bonusShift;
+
+    // 加班費（小數無條件進入，以時薪為單位）
+    const ot1h = v('ft-ot1'); const ot2h = v('ft-ot2');
+    const ot3h = v('ft-ot3');
+
+    const otRate1 = Math.ceil(hourly * 1.34);
+    const otRate2 = Math.ceil(hourly * 1.67);
+    const otRate3 = hourly;
+
+    const ot1Pay = otRate1 * ot1h;
+    const ot2Pay = otRate2 * ot2h;
+    const ot3Pay = otRate3 * ot3h;
+    const totalOT = ot1Pay + ot2Pay + ot3Pay;
+
+    // 假別扣除（以小時計，無條件進入）
+    const sickHours     = v('ft-sick');
+    const personalHours = v('ft-personal');
+    const sickDeductPerHour     = Math.ceil(hourly / 2);
+    const personalDeductPerHour = hourly;
+    const sickDeduct    = sickDeductPerHour * sickHours;
+    const personalDeduct = personalDeductPerHour * personalHours;
+    const totalLeave    = sickDeduct + personalDeduct;
+
+    const hintSick = sickHours > 0
+      ? `每小時扣 NT$${sickDeductPerHour.toLocaleString('zh-TW')}，共扣 NT$${sickDeduct.toLocaleString('zh-TW')}`
+      : `每小時扣 NT$${sickDeductPerHour.toLocaleString('zh-TW')} / 小時`;
+    const hintPersonal = personalHours > 0
+      ? `每小時扣 NT$${personalDeductPerHour.toLocaleString('zh-TW')}，共扣 NT$${personalDeduct.toLocaleString('zh-TW')}`
+      : `每小時扣 NT$${personalDeductPerHour.toLocaleString('zh-TW')} / 小時`;
+
+    document.getElementById('ft-sick-hint').textContent = hintSick;
+    document.getElementById('ft-personal-hint').textContent = hintPersonal;
+
+    // 勞健保（分開計算）
+    const withLabor = document.getElementById('ft-labor-ins').checked;
+    const withHealth = document.getElementById('ft-health-ins').checked;
+    const labIns  = withLabor  ? Math.round(laborIns(salary) * workdays / 30) : 0;
+    const hthIns  = withHealth ? healthIns(salary) : 0;
+    const totalIns = labIns + hthIns;
+
+    // 合計（底薪用比例薪資）
+    const grossPay    = basePay + totalBonus + totalOT;
+    const totalDeduct = totalLeave + labIns + hthIns;
+    const netPay      = Math.ceil((grossPay - totalDeduct) / 10) * 10;
+
+    // ── Build HTML ──
+    let html = '';
+
+    // 應領項目
+    html += `<div class="res-section">應領項目</div>`;
+    if (workdays < 30) {
+      html += row(`月薪（${workdays}/30 天比例）`, ntd(basePay), 'pos');
+    } else {
+      html += row('月薪 / 底薪', ntd(salary), 'pos');
+    }
+
+    if (totalBonus > 0) {
+      if (bonusDuty   > 0) html += row('責任獎金', ntd(bonusDuty),   'pos');
+      if (bonusAttend > 0) html += row('全勤獎金', ntd(bonusAttend), 'pos');
+      if (bonusEmp    > 0) html += row('員工加給', ntd(bonusEmp),    'pos');
+      if (bonusLead   > 0) html += row('領導津貼', ntd(bonusLead),   'pos');
+      if (bonusMgr    > 0) html += row('店長獎金', ntd(bonusMgr),    'pos');
+      if (bonusShift  > 0) html += row('班別獎金', ntd(bonusShift),  'pos');
+      html += subtotalRow('津貼 & 獎金小計', ntd(totalBonus));
+    }
+
+    if (totalOT > 0) {
+      if (ot1h > 0) html += row(`平日前 2 小時 ${ot1h}h（${ntd(otRate1)}/h）`, ntd(ot1Pay), 'pos');
+      if (ot2h > 0) html += row(`平日第 3 起 ${ot2h}h（${ntd(otRate2)}/h）`,   ntd(ot2Pay), 'pos');
+      if (ot3h > 0) html += row(`休息日加班 ${ot3h}h（${ntd(otRate3)}/h）`,    ntd(ot3Pay), 'pos');
+      html += subtotalRow('加班費小計', ntd(totalOT));
+    }
+
+    html += `<div class="res-item" style="font-weight:700">
+               <span class="lbl">應領合計</span>
+               <span class="val pos">${ntd(grossPay)}</span>
+             </div>`;
+
+    // 扣除項目
+    html += `<div class="res-section">扣除項目</div>`;
+
+    if (totalLeave > 0) {
+      if (sickHours     > 0) html += row(`病假 ${sickHours} 小時（${ntd(sickDeductPerHour)}/h）`,     '－' + ntd(sickDeduct),    'neg');
+      if (personalHours > 0) html += row(`事假 ${personalHours} 小時（${ntd(personalDeductPerHour)}/h）`, '－' + ntd(personalDeduct), 'neg');
+      html += subtotalRow('假別扣除小計', '－' + ntd(totalLeave), 'deduct');
+    } else {
+      html += row('病假 / 事假', '－ NT$ 0', 'sub');
+    }
+
+    if (withLabor || withHealth) {
+      if (withLabor)  html += row('勞工保險費（員工自付）', '－' + ntd(labIns),  'neg');
+      if (withHealth) html += row('全民健保費（員工自付）', '－' + ntd(hthIns), 'neg');
+      if (withLabor && withHealth)
+        html += subtotalRow('勞健保扣除小計', '－' + ntd(totalIns), 'deduct');
+    } else {
+      html += row('勞健保', '不計入', 'sub');
+    }
+
+    // 實領
+    html += `<div class="res-total">
+               <span class="lbl">🏦 本月實領薪資</span>
+               <span class="val">${ntd(netPay)}</span>
+             </div>`;
+
+    // 參考
+    html += `<div class="ref-box">
+               <div class="res-section">參考資訊</div>
+               ${row('時薪基礎（底薪÷30÷8）', ntd(hourly) + ' / 小時', 'sub')}
+               ${row('日薪基礎（底薪÷30）',  ntd(Math.ceil(salary / 30)) + ' / 天',  'sub')}
+             </div>`;
+
+    document.getElementById('results').innerHTML = html;
+    document.getElementById('print-btn').style.display = 'block';
+    document.getElementById('payslip-btn').style.display = 'block';
+  }
+
+  // ════ 工讀計算 ════
+  function calcParttime() {
+    const hourlyRate = v('pt-hourly');
+    const totalHours = v('pt-hours');
+    const hpd        = v('pt-hpd') || 8;
+    const ot1h       = v('pt-ot1');
+    const ot2h       = v('pt-ot2');
+    const withIns    = document.getElementById('pt-ins').checked;
+
+    const hrInput = document.getElementById('pt-hourly');
+    hrInput.classList.toggle('warn', hourlyRate > 0 && hourlyRate < MIN_WAGE_HOURLY);
+
+    if (!hourlyRate || !totalHours) { resetResults(); return; }
+
+    const regularPay = totalHours * hourlyRate;
+
+    // 加班費：以時薪為基礎，無條件進入
+    const otRate1 = Math.ceil(hourlyRate * 1.34);
+    const otRate2 = Math.ceil(hourlyRate * 1.67);
+    const ot1Pay  = otRate1 * ot1h;
+    const ot2Pay  = otRate2 * ot2h;
+    const totalOT = ot1Pay + ot2Pay;
+    const grossPay = regularPay + totalOT;
+
+    const labIns  = withIns ? laborIns(grossPay)  : 0;
+    const hthIns  = withIns ? healthIns(grossPay) : 0;
+    const netPay  = Math.ceil((grossPay - labIns - hthIns) / 10) * 10;
+
+    let html = '';
+    html += `<div class="res-section">應領項目</div>`;
+    html += row(`正常工時 ${totalHours}h（${ntd(hourlyRate)}/h）`, ntd(regularPay), 'pos');
+
+    if (totalOT > 0) {
+      if (ot1h > 0) html += row(`平日前 2 小時 ${ot1h}h（${ntd(otRate1)}/h）`, ntd(ot1Pay), 'pos');
+      if (ot2h > 0) html += row(`平日第 3 起 ${ot2h}h（${ntd(otRate2)}/h）`,   ntd(ot2Pay), 'pos');
+      html += subtotalRow('加班費小計', ntd(totalOT));
+    }
+
+    html += `<div class="res-item" style="font-weight:700">
+               <span class="lbl">應領合計</span>
+               <span class="val pos">${ntd(grossPay)}</span>
+             </div>`;
+
+    if (withIns) {
+      html += `<div class="res-section">扣除項目</div>`;
+      html += row('勞工保險費（員工自付）', '－' + ntd(labIns), 'neg');
+      html += row('全民健保費（員工自付）', '－' + ntd(hthIns), 'neg');
+      html += subtotalRow('勞健保扣除小計', '－' + ntd(labIns + hthIns), 'deduct');
+    }
+
+    html += `<div class="res-total">
+               <span class="lbl">💰 本月實領薪資</span>
+               <span class="val">${ntd(netPay)}</span>
+             </div>`;
+
+    html += `<div class="ref-box">
+               <div class="res-section">參考資訊</div>
+               ${row('時薪', ntd(hourlyRate) + ' / 小時', 'sub')}
+               ${row('換算日薪（' + hpd + ' 小時）', ntd(hourlyRate * hpd) + ' / 天', 'sub')}
+               ${row('本月估算月薪', ntd(grossPay) + ' / 月', 'sub')}
+             </div>`;
+
+    if (hourlyRate < MIN_WAGE_HOURLY) {
+      html += `<div style="background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;padding:0.65rem 0.85rem;margin-top:0.75rem;font-size:0.8rem;color:#92400E;">
+                 ⚠️ 時薪 NT$${hourlyRate} 低於 2024 年法定最低時薪 NT$${MIN_WAGE_HOURLY}
+               </div>`;
+    }
+
+    document.getElementById('results').innerHTML = html;
+    document.getElementById('print-btn').style.display = 'block';
+  }
+
+  // ════ 自動儲存（使用者輸入觸發，JS 設值不觸發）════
+  let _autoSaveTimer = null;
+
+  function _flushAutoSave() {
+    // 立刻把尚未觸發的 debounce 存掉（切月份 / 切員工前呼叫）
+    if (_autoSaveTimer !== null) {
+      clearTimeout(_autoSaveTimer);
+      _autoSaveTimer = null;
+      const person = document.getElementById('person-select').value;
+      if (person) savePersonData();
+    }
+  }
+
+  function _scheduleAutoSave() {
+    const person = document.getElementById('person-select').value;
+    if (!person) return;
+    clearTimeout(_autoSaveTimer);
+    _autoSaveTimer = setTimeout(() => {
+      _autoSaveTimer = null;
+      savePersonData();
+    }, 200);
+  }
+
+  // 監聽所有正職 / 工讀欄位的使用者輸入（oninput 只在真人輸入時觸發）
+  document.addEventListener('input', function(e) {
+    const id = e.target.id || '';
+    if (id.startsWith('ft-') || id.startsWith('pt-')) _scheduleAutoSave();
+  });
+  document.addEventListener('change', function(e) {
+    const id = e.target.id || '';
+    if (id.startsWith('ft-') || id.startsWith('pt-')) _scheduleAutoSave();
+  });
+</script>
+</body>
+</html>
