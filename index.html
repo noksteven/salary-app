@@ -906,6 +906,16 @@
             <option value="3">3 人</option>
           </select>
         </label>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="ft-custom-ins" onchange="toggleCustomIns(); calcFulltime()">
+          <label for="ft-custom-ins">自定額</label>
+        </label>
+        <div id="ft-custom-ins-wrap" style="display:none;align-items:center;gap:6px;">
+          <div class="input-wrap" style="width:130px">
+            <input type="number" id="ft-custom-ins-amt" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+            <span class="suffix">元</span>
+          </div>
+        </div>
       </div>
 
       <!-- 工作天數 -->
@@ -1276,7 +1286,7 @@
   }
 
   // ════ 人員記憶功能 ════
-  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-health-dep','ft-leave-used','ft-leave-kept'];
+  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-health-dep','ft-leave-used','ft-leave-kept','ft-custom-ins-amt'];
   const PT_FIELDS = ['pt-hourly','pt-hours','pt-hpd','pt-ot1','pt-ot2'];
 
   function storageKey(store, person, mode, month) {
@@ -1301,6 +1311,8 @@
       document.getElementById('ft-labor-ins').checked = true;
       document.getElementById('ft-health-ins').checked = true;
       document.getElementById('ft-health-dep').value = '0';
+      document.getElementById('ft-custom-ins').checked = false;
+      toggleCustomIns();
       document.getElementById('ft-tenure-info').style.display = 'none';
       document.getElementById('ft-leave-wrap').style.display = 'none';
       document.getElementById('ft-leave-remain').textContent = '';
@@ -1328,6 +1340,7 @@
       FT_FIELDS.forEach(id => { data[id] = document.getElementById(id).value; });
       data['ft-labor-ins'] = document.getElementById('ft-labor-ins').checked;
       data['ft-health-ins'] = document.getElementById('ft-health-ins').checked;
+      data['ft-custom-ins'] = document.getElementById('ft-custom-ins').checked;
       data['ft-startdate']  = document.getElementById('ft-startdate').value;
     } else {
       PT_FIELDS.forEach(id => { data[id] = document.getElementById(id).value; });
@@ -1363,7 +1376,8 @@
     'ft-salary',
     'ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift',
     'ft-health-dep',
-    'ft-leave-used','ft-leave-kept'
+    'ft-leave-used','ft-leave-kept',
+    'ft-custom-ins-amt'
   ]);
   const PT_CARRY_FIELDS = new Set(['pt-hourly','pt-hpd']);
 
@@ -1385,6 +1399,8 @@
           document.getElementById('ft-labor-ins').checked = data['ft-labor-ins'] ?? true;
           document.getElementById('ft-health-ins').checked = data['ft-health-ins'] ?? true;
           document.getElementById('ft-health-dep').value = data['ft-health-dep'] ?? '0';
+          document.getElementById('ft-custom-ins').checked = data['ft-custom-ins'] ?? false;
+          toggleCustomIns();
           document.getElementById('ft-startdate').value = data['ft-startdate'] || '';
         } else {
           PT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
@@ -1418,6 +1434,8 @@
       document.getElementById('ft-labor-ins').checked = prev['ft-labor-ins'] ?? true;
       document.getElementById('ft-health-ins').checked = prev['ft-health-ins'] ?? true;
       document.getElementById('ft-health-dep').value = prev['ft-health-dep'] ?? '0';
+      document.getElementById('ft-custom-ins').checked = prev['ft-custom-ins'] ?? false;
+      toggleCustomIns();
     } else {
       PT_CARRY_FIELDS.forEach(id => {
         if (prev[id] !== undefined) document.getElementById(id).value = prev[id];
@@ -1479,6 +1497,14 @@
   function subtotalRow(label, value, type) {
     const cls = type === 'deduct' ? 'deduct' : '';
     return `<div class="res-subtotal ${cls}"><span class="lbl">${label}</span><span class="val">${value}</span></div>`;
+  }
+
+  function toggleCustomIns() {
+    const checked = document.getElementById('ft-custom-ins').checked;
+    document.getElementById('ft-custom-ins-wrap').style.display = checked ? 'flex' : 'none';
+    document.getElementById('ft-labor-ins').disabled = checked;
+    document.getElementById('ft-health-ins').disabled = checked;
+    document.getElementById('ft-health-dep').disabled = checked;
   }
 
   function switchMode(mode) {
@@ -1543,12 +1569,14 @@
     const restdayOT = hourly * ot3h;
     const sub1      = basePay + weekdayOT + restdayOT;
 
-    const healthDep = v('ft-health-dep');
-    const labI  = document.getElementById('ft-labor-ins').checked  ? Math.round(laborIns(sal) * workdays / 30) : 0;
-    const hthI  = document.getElementById('ft-health-ins').checked ? healthIns(sal, healthDep) : 0;
+    const healthDep   = v('ft-health-dep');
+    const customIns   = document.getElementById('ft-custom-ins').checked;
+    const labI  = !customIns && document.getElementById('ft-labor-ins').checked  ? Math.round(laborIns(sal) * workdays / 30) : 0;
+    const hthI  = !customIns && document.getElementById('ft-health-ins').checked ? healthIns(sal, healthDep) : 0;
+    const customInsAmt = customIns ? (parseFloat(document.getElementById('ft-custom-ins-amt').value) || 0) : 0;
     const sickD = Math.ceil(hourly / 2) * v('ft-sick');
     const persD = hourly * v('ft-personal');
-    const sub2  = labI + hthI + sickD + persD;
+    const sub2  = (customIns ? customInsAmt : labI + hthI) + sickD + persD;
     const net   = Math.ceil((sub1 - sub2) / 10) * 10;
     const bonus = v('ft-bonus-duty') + v('ft-bonus-attend') + v('ft-bonus-emp') +
                   v('ft-bonus-lead') + v('ft-bonus-mgr')   + v('ft-bonus-shift');
@@ -1704,14 +1732,17 @@ body { background:white; }
     const ot3h   = parseFloat(data['ft-ot3']) || 0;
     const otPay  = Math.ceil(hourly * 1.34) * ot1h + Math.ceil(hourly * 1.67) * ot2h + hourly * ot3h;
     const sub1   = basePay + otPay;
-    const labIns  = data['ft-labor-ins'] === 'true' || data['ft-labor-ins'] === true;
-    const hthIns  = data['ft-health-ins'] === 'true' || data['ft-health-ins'] === true;
+    const customIns = data['ft-custom-ins'] === 'true' || data['ft-custom-ins'] === true;
+    const labIns  = !customIns && (data['ft-labor-ins'] === 'true' || data['ft-labor-ins'] === true);
+    const hthIns  = !customIns && (data['ft-health-ins'] === 'true' || data['ft-health-ins'] === true);
     const labI   = labIns ? Math.round(laborIns(sal) * workdays / 30) : 0;
     const healthDep = parseFloat(data['ft-health-dep']) || 0;
     const hthI   = hthIns ? healthIns(sal, healthDep) : 0;
+    const customInsAmt = customIns ? (parseFloat(data['ft-custom-ins-amt']) || 0) : 0;
     const sickD  = Math.ceil(hourly / 2) * (parseFloat(data['ft-sick']) || 0);
     const persD  = hourly * (parseFloat(data['ft-personal']) || 0);
-    const sub2   = labI + hthI + sickD + persD;
+    const insD   = customIns ? customInsAmt : labI + hthI;
+    const sub2   = insD + sickD + persD;
     const net    = Math.ceil((sub1 - sub2) / 10) * 10;
     const bonus  = ['ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift']
                     .reduce((s, k) => s + (parseFloat(data[k]) || 0), 0);
@@ -1994,16 +2025,18 @@ body { background:white; }
     document.getElementById('ft-personal-hint').textContent = hintPersonal;
 
     // 勞健保（分開計算）
-    const withLabor = document.getElementById('ft-labor-ins').checked;
-    const withHealth = document.getElementById('ft-health-ins').checked;
+    const customIns = document.getElementById('ft-custom-ins').checked;
+    const withLabor = !customIns && document.getElementById('ft-labor-ins').checked;
+    const withHealth = !customIns && document.getElementById('ft-health-ins').checked;
     const healthDep = v('ft-health-dep');
     const labIns  = withLabor  ? Math.round(laborIns(salary) * workdays / 30) : 0;
     const hthIns  = withHealth ? healthIns(salary, healthDep) : 0;
-    const totalIns = labIns + hthIns;
+    const customInsAmt = customIns ? (parseFloat(document.getElementById('ft-custom-ins-amt').value) || 0) : 0;
+    const totalIns = customIns ? customInsAmt : labIns + hthIns;
 
     // 合計（底薪用比例薪資）
     const grossPay    = basePay + totalBonus + totalOT;
-    const totalDeduct = totalLeave + labIns + hthIns;
+    const totalDeduct = totalLeave + totalIns;
     const netPay      = Math.ceil((grossPay - totalDeduct) / 10) * 10;
 
     // ── Build HTML ──
@@ -2050,7 +2083,9 @@ body { background:white; }
       html += row('病假 / 事假', '－ NT$ 0', 'sub');
     }
 
-    if (withLabor || withHealth) {
+    if (customIns) {
+      html += row('勞健保（自定額）', '－' + ntd(customInsAmt), 'neg');
+    } else if (withLabor || withHealth) {
       if (withLabor)  html += row('勞工保險費（員工自付）', '－' + ntd(labIns),  'neg');
       if (withHealth) html += row(`全民健保費（員工自付，${1 + healthDep} 口）`, '－' + ntd(hthIns), 'neg');
       if (withLabor && withHealth)
