@@ -501,6 +501,36 @@
     .person-btn.del:hover { background: var(--danger); color: white; }
     .person-btn.del:disabled { opacity: 0.3; cursor: not-allowed; }
     .person-btn.del:disabled:hover { background: #FEE2E2; color: var(--danger); }
+    .person-btn.deact {
+      background: #FEF3C7;
+      color: #B45309;
+    }
+    .person-btn.deact:hover { background: #FDE68A; }
+    .person-btn.deact:disabled { opacity: 0.3; cursor: not-allowed; }
+    .person-btn.deact:disabled:hover { background: #FEF3C7; color: #B45309; }
+
+    /* ── 顯示離職員工開關 ── */
+    .show-inactive-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin: -0.7rem 0 1.1rem;
+      padding-left: 2px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .show-inactive-wrap input { accent-color: var(--primary); cursor: pointer; }
+    .departed-tag {
+      font-size: 0.68rem;
+      background: #FEF3C7;
+      color: #B45309;
+      padding: 1px 6px;
+      border-radius: 8px;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
 
     .health-dep-wrap {
       display: flex;
@@ -771,8 +801,13 @@
       <button type="button" class="person-btn move" id="move-up-btn" onclick="moveEmployee(-1)" title="往上移" disabled>↑</button>
       <button type="button" class="person-btn move" id="move-down-btn" onclick="moveEmployee(1)" title="往下移" disabled>↓</button>
       <button type="button" class="person-btn add" onclick="addEmployee()" title="新增員工">＋</button>
-      <button type="button" class="person-btn del" id="del-btn" onclick="deleteEmployee()" title="刪除員工" disabled>🗑</button>
+      <button type="button" class="person-btn deact" id="deact-btn" onclick="toggleDeactivate()" title="設為離職" disabled>🚪</button>
+      <button type="button" class="person-btn del" id="del-btn" onclick="deleteEmployee()" title="永久刪除（含資料）" disabled>🗑</button>
     </div>
+    <label class="show-inactive-wrap">
+      <input type="checkbox" id="show-inactive-cb" onchange="toggleShowInactive(this.checked)">
+      顯示離職員工
+    </label>
 
     <!-- ╔══ 正職 ══╗ -->
     <div id="fulltime-section">
@@ -1089,9 +1124,15 @@
   const _db = firebase.database();
 
   // ════ Workspace ID（URL 中的 ?w=XXXX）════
+  // 128-bit 密碼學亂數，避免被列舉／猜測（取代原本可預測的 Math.random）
+  function _genWID() {
+    const buf = new Uint8Array(16);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, b => b.toString(16).padStart(2, '0')).join('');
+  }
   let _WID = new URLSearchParams(location.search).get('w');
   if (!_WID) {
-    _WID = Math.random().toString(36).slice(2,9) + Math.random().toString(36).slice(2,9);
+    _WID = _genWID();
     history.replaceState(null, '', '?w=' + _WID);
   }
   const _fbRef = () => _db.ref('w/' + _WID);
@@ -1185,10 +1226,19 @@
   }
 
   function switchMonth(month) {
+    const store = currentStore();
+    const mode = currentMode();
     const person = document.getElementById('person-select').value;
+    // 依新月份重繪下拉（離職者在離職後月份會被過濾掉）
+    renderEmployeeSelect(store, mode, person);
+    // 原選取員工在新月份已離職（被過濾）→ 清空結果
+    if (person && document.getElementById('person-select').value !== person) {
+      resetResults();
+      return;
+    }
     if (!person) return;
-    loadPersonData(person, currentMode(), month);
-    if (currentMode() === 'fulltime') calcFulltime(); else calcParttime();
+    loadPersonData(person, mode, month);
+    if (mode === 'fulltime') calcFulltime(); else calcParttime();
   }
 
   // 點外部關閉月份選單
@@ -1216,42 +1266,104 @@
     _ls.setItem(employeeListKey(store, mode), JSON.stringify(list));
   }
 
+  // ── 離職（月份感知：記錄離職月份，薪資資料完整保留）──
+  // depart_店_模式 = { 姓名: 'YYYY-MM' }；≤ 離職月自動顯示，> 離職月自動隱藏
+  let _showInactive = false;
+  function departMapKey(store, mode) { return 'depart_' + store + '_' + mode; }
+  function getDepartMap(store, mode) {
+    const raw = _ls.getItem(departMapKey(store, mode));
+    return raw ? JSON.parse(raw) : {};
+  }
+  function saveDepartMap(store, mode, map) {
+    _ls.setItem(departMapKey(store, mode), JSON.stringify(map));
+  }
+  function getDepartMonth(store, mode, name) {
+    return getDepartMap(store, mode)[name] || null;
+  }
+  // 該員工在指定月份是否「已離職」（離職月之後）
+  function isDepartedInMonth(store, mode, name, month) {
+    const d = getDepartMonth(store, mode, name);
+    return !!d && !!month && month > d;
+  }
+  // 指定月份要顯示於下拉／總覽的員工；showAll 時連離職後月份也顯示
+  function getVisibleEmployees(store, mode, month, showAll) {
+    const map = getDepartMap(store, mode);
+    return getEmployees(store, mode).filter(n => {
+      const d = map[n];
+      return !d || !month || month <= d || showAll;
+    });
+  }
+  // 當月可排序的員工（當月在職者）
+  function reorderableEmployees(store, mode, month) {
+    return getVisibleEmployees(store, mode, month, false)
+      .filter(n => !isDepartedInMonth(store, mode, n, month));
+  }
+
   function renderEmployeeSelect(store, mode, selectedName) {
-    const list = getEmployees(store, mode);
     const sel = document.getElementById('person-select');
+    const month = currentMonth();
     sel.innerHTML = '<option value="">── 請選擇員工 ──</option>';
-    list.forEach(name => {
+    const addOpt = (name, departed) => {
       const opt = document.createElement('option');
-      opt.value = opt.textContent = name;
+      opt.value = name;
+      opt.textContent = departed ? name + '（離職）' : name;
+      if (departed) opt.style.color = '#B45309';
       if (name === selectedName) opt.selected = true;
       sel.appendChild(opt);
-    });
+    };
+    const visible  = getVisibleEmployees(store, mode, month, _showInactive);
+    const active   = visible.filter(n => !isDepartedInMonth(store, mode, n, month));
+    const departed = visible.filter(n =>  isDepartedInMonth(store, mode, n, month));
+    active.forEach(n => addOpt(n, false));
+    if (departed.length) {
+      const sep = document.createElement('option');
+      sep.disabled = true;
+      sep.textContent = '──── 離職 ────';
+      sel.appendChild(sep);
+      departed.forEach(n => addOpt(n, true));
+    }
     updateEmployeeOrderButtons();
   }
 
   function updateEmployeeOrderButtons() {
     const sel = document.getElementById('person-select');
-    const idx = sel.selectedIndex - 1;
-    const count = sel.options.length - 1;
-    document.getElementById('del-btn').disabled = idx < 0;
+    const name = sel.value;
+    const hasSel = !!name;
+    const store = currentStore();
+    const mode = currentMode();
+    const month = currentMonth();
+    const hasDepart = hasSel && !!getDepartMonth(store, mode, name);
+
+    document.getElementById('del-btn').disabled = !hasSel;
+
+    const deactBtn = document.getElementById('deact-btn');
+    deactBtn.disabled = !hasSel;
+    deactBtn.textContent = hasDepart ? '↩' : '🚪';
+    deactBtn.title = hasDepart ? '取消離職（復職）' : '設為離職';
+
+    // 排序只作用於「當月在職」員工
+    const reorderable = reorderableEmployees(store, mode, month);
+    const idx = reorderable.indexOf(name);
     document.getElementById('move-up-btn').disabled = idx <= 0;
-    document.getElementById('move-down-btn').disabled = idx < 0 || idx >= count - 1;
+    document.getElementById('move-down-btn').disabled = idx < 0 || idx >= reorderable.length - 1;
   }
 
   function moveEmployee(delta) {
     const sel = document.getElementById('person-select');
-    const idx = sel.selectedIndex - 1;
-    if (idx < 0) return;
+    const name = sel.value;
+    if (!name) return;
     const store = currentStore();
     const mode = currentMode();
-    const list = getEmployees(store, mode);
-    const nextIdx = idx + delta;
-    if (nextIdx < 0 || nextIdx >= list.length) return;
-    const person = list[idx];
-    [list[idx], list[nextIdx]] = [list[nextIdx], list[idx]];
-    saveEmployees(store, mode, list);
-    renderEmployeeSelect(store, mode, person);
-    document.getElementById('person-select').selectedIndex = nextIdx + 1;
+    const month = currentMonth();
+    const reorderable = reorderableEmployees(store, mode, month);
+    const targetName = reorderable[reorderable.indexOf(name) + delta];
+    if (targetName === undefined) return;
+    const master = getEmployees(store, mode);
+    const i = master.indexOf(name);
+    const j = master.indexOf(targetName);
+    [master[i], master[j]] = [master[j], master[i]];
+    saveEmployees(store, mode, master);
+    renderEmployeeSelect(store, mode, name);
     updateEmployeeOrderButtons();
     renderSummaryTable();
   }
@@ -1267,6 +1379,11 @@
     const name = prompt('請輸入新員工姓名：');
     if (!name || !name.trim()) return;
     const trimmed = name.trim();
+    // 姓名會成為 Firebase 路徑 key，需排除非法字元；一併擋角括號降低注入風險
+    if (/[.#$/\[\]<>]/.test(trimmed)) {
+      alert('姓名不可包含以下符號： . # $ / [ ] < >');
+      return;
+    }
     const store = currentStore();
     const mode = currentMode();
     const list = getEmployees(store, mode);
@@ -1277,20 +1394,59 @@
     switchPerson(trimmed);
   }
 
+  function toggleShowInactive(show) {
+    _showInactive = show;
+    const sel = document.getElementById('person-select');
+    renderEmployeeSelect(currentStore(), currentMode(), sel.value);
+    renderSummaryTable();
+  }
+
+  function toggleDeactivate() {
+    const sel = document.getElementById('person-select');
+    const person = sel.value;
+    if (!person) return;
+    const store = currentStore();
+    const mode = currentMode();
+    const month = currentMonth();
+    const map = getDepartMap(store, mode);
+    if (map[person]) {
+      // 復職：清除離職月份
+      delete map[person];
+      saveDepartMap(store, mode, map);
+      renderEmployeeSelect(store, mode, person);
+    } else {
+      // 設為離職：以目前檢視月份為離職月，該月及之前仍顯示、之後自動隱藏
+      if (!month) { alert('請先選擇月份再設定離職'); return; }
+      const [ys, ms] = month.split('-');
+      const roc = parseInt(ys) - 1911;
+      if (!confirm(`將「${person}」設定為 ${roc}年${parseInt(ms)}月 離職？\n該月及之前仍會顯示並計入合計，之後月份自動隱藏。\n（資料完整保留，可隨時復職）`)) return;
+      map[person] = month;
+      saveDepartMap(store, mode, map);
+      renderEmployeeSelect(store, mode, person); // 當月他仍在職，保留選取
+    }
+    updateEmployeeOrderButtons();
+    renderSummaryTable();
+  }
+
   function deleteEmployee() {
     const sel = document.getElementById('person-select');
     const person = sel.value;
     if (!person) return;
-    if (!confirm(`確定要刪除「${person}」？\n該員工所有薪資記錄也會一併刪除。`)) return;
+    // 二次確認：硬刪除會連同資料一起刪除，無法復原
+    if (!confirm(`⚠️ 永久刪除「${person}」？\n這會連同他所有月份的薪資記錄一起刪除，無法復原。\n\n若只是離職，請改用「🚪 設為離職」保留資料。`)) return;
+    if (!confirm(`再次確認：真的要「永久刪除」${person} 及其全部薪資資料嗎？`)) return;
     const store = currentStore();
     const mode = currentMode();
     saveEmployees(store, mode, getEmployees(store, mode).filter(n => n !== person));
+    const map = getDepartMap(store, mode);
+    if (map[person] !== undefined) { delete map[person]; saveDepartMap(store, mode, map); }
     const prefix = 'salary_' + store + '_' + person + '_';
     Object.keys(_FB).filter(k => k.startsWith(prefix)).forEach(k => _ls.removeItem(k));
     _ls.removeItem('last_' + store + '_' + person + '_fulltime');
     _ls.removeItem('last_' + store + '_' + person + '_parttime');
     renderEmployeeSelect(store, mode);
     resetResults();
+    renderSummaryTable();
   }
 
   // ════ 人員記憶功能 ════
@@ -1496,6 +1652,12 @@
     const depCount = Math.min(Math.max(parseInt(dependents, 10) || 0, 0), 3);
     return Math.round(base * 0.0517 * 0.30 * (1 + depCount));
   }
+  // 將使用者輸入（如員工姓名）插入 innerHTML 前先轉義，避免 XSS
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
   function ntd(amount) {
     return 'NT$ ' + Math.round(amount).toLocaleString('zh-TW');
   }
@@ -1562,6 +1724,7 @@
     const person = document.getElementById('person-select').value;
     const sal    = v('ft-salary');
     if (!person || !sal) { alert('請先完成薪資計算'); return; }
+    const personSafe = escapeHtml(person); // 寫入新視窗 HTML 前先轉義
 
     const monthVal = currentMonth();
     const [ys, ms] = monthVal.split('-');
@@ -1622,7 +1785,7 @@
 <table style="border-collapse:collapse;font-family:'Times New Roman',Times,serif;font-size:12pt;table-layout:fixed;">
 <colgroup><col style="width:97pt"><col style="width:89pt"><col style="width:160pt"><col style="width:66pt"></colgroup>
 ${tr1(0,  td(`${rocYear}年${mp}月　工資明細表`,  'text-align:center;font-size:16pt;', ' colspan="4"'))}
-${tr1(1,  td(`姓名：${person}`, '', ' colspan="3"') +
+${tr1(1,  td(`姓名：${personSafe}`, '', ' colspan="3"') +
           td('公司留存', 'text-align:right;font-size:10pt;'))}
 ${tr1(2,  td(dateRange, 'font-size:10pt;', ' colspan="4"'))}
 ${tr1(3,  td('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
@@ -1673,7 +1836,7 @@ ${tr1(20, td('', '', ' colspan="4"'))}
 <table style="border-collapse:collapse;font-family:'Times New Roman',Times,serif;font-size:11pt;table-layout:fixed;">
 <colgroup><col style="width:70pt"><col style="width:64pt"><col style="width:87pt"><col style="width:48pt"></colgroup>
 ${tr2(0,  td2(`${rocYear}年${mp}月　工資明細表`, 'text-align:center;font-size:15pt;', ' colspan="4"'))}
-${tr2(1,  td2(`姓名：${person}`, '', ' colspan="4"'))}
+${tr2(1,  td2(`姓名：${personSafe}`, '', ' colspan="4"'))}
 ${tr2(2,  td2(dateRange, 'font-size:9pt;', ' colspan="4"'))}
 ${tr2(3,  td2('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
           td2('金額', 'text-align:center;font-weight:600;', ' colspan="2"'))}
@@ -1702,7 +1865,7 @@ ${tr2(15, td2('備註', 'text-align:center;') +
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<title>${rocYear}年${mp}月 工資明細表 - ${person}</title>
+<title>${rocYear}年${mp}月 工資明細表 - ${personSafe}</title>
 <style>
 * { box-sizing:border-box; margin:0; padding:0; }
 body { background:white; }
@@ -1788,14 +1951,11 @@ body { background:white; }
 
     document.getElementById('summary-month-label').textContent = `— ${rocYear}年${mp}月`;
 
-    const ftEmps = getEmployees(store, 'fulltime');
-    const ptEmps = getEmployees(store, 'parttime');
-
     const rows = [];
     let totSal = 0, totOT = 0, totBonus = 0, totDeduct = 0, totNet = 0, totTotal = 0;
     let filledCount = 0;
 
-    const addRow = (name, mode, compute) => {
+    const addRow = (name, mode, compute, departed) => {
       // 優先用當月資料，沒有則用最後編輯月份的資料
       let raw = _ls.getItem(storageKey(store, name, mode, month));
       let isCurrent = true;
@@ -1807,24 +1967,31 @@ body { background:white; }
         }
       }
       if (!raw) {
-        rows.push({ name, mode, empty: true });
+        rows.push({ name, mode, empty: true, departed });
         return;
       }
       const r = compute(JSON.parse(raw));
       if (!r) {
-        rows.push({ name, mode, empty: true });
+        rows.push({ name, mode, empty: true, departed });
         return;
       }
-      rows.push({ name, mode, ...r, empty: false, isCurrent });
-      filledCount++;
-      if (isCurrent) {
-        totSal += r.sal; totOT += r.ot; totBonus += r.bonus;
-        totDeduct += r.deduct; totNet += r.net; totTotal += r.total;
+      rows.push({ name, mode, ...r, empty: false, isCurrent, departed });
+      // 離職員工僅供檢視，不計入當月合計
+      if (!departed) {
+        filledCount++;
+        if (isCurrent) {
+          totSal += r.sal; totOT += r.ot; totBonus += r.bonus;
+          totDeduct += r.deduct; totNet += r.net; totTotal += r.total;
+        }
       }
     };
 
-    ftEmps.forEach(n => addRow(n, 'fulltime', computeFTSummary));
-    ptEmps.forEach(n => addRow(n, 'parttime', computePTSummary));
+    const addMode = (mode, compute) => {
+      getVisibleEmployees(store, mode, month, _showInactive).forEach(n =>
+        addRow(n, mode, compute, isDepartedInMonth(store, mode, n, month)));
+    };
+    addMode('fulltime', computeFTSummary);
+    addMode('parttime', computePTSummary);
 
     const wrap = document.getElementById('summary-table-body');
     if (rows.length === 0) {
@@ -1837,17 +2004,18 @@ body { background:white; }
 
     const bodyRows = rows.map(r => {
       const badge = `<span class="${r.mode === 'fulltime' ? 'ft' : 'pt'}-badge">${r.mode === 'fulltime' ? '正職' : '工讀'}</span>`;
+      const departedTag = r.departed ? `<span class="departed-tag">離職</span>` : '';
       if (r.empty) return `
-        <tr style="color:var(--text-muted);font-style:italic;">
-          <td>${r.name}</td>
+        <tr style="color:var(--text-muted);font-style:italic;${r.departed ? 'opacity:0.55;' : ''}">
+          <td>${escapeHtml(r.name)}${departedTag}</td>
           <td>${badge}</td>
           <td colspan="6" style="text-align:center;font-size:0.8rem;">尚無資料</td>
         </tr>`;
-      const dim = r.isCurrent ? '' : 'opacity:0.55;';
+      const dim = (r.isCurrent && !r.departed) ? '' : 'opacity:0.55;';
       const oldTag = r.isCurrent ? '' : `<span style="font-size:0.68rem;background:#F1F5F9;color:var(--text-muted);padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle;">非當月</span>`;
       return `
         <tr style="${dim}">
-          <td>${r.name}${oldTag}</td>
+          <td>${escapeHtml(r.name)}${departedTag}${oldTag}</td>
           <td>${badge}</td>
           <td>${N(r.sal)}</td>
           <td>${N(r.ot)}</td>
@@ -1858,7 +2026,7 @@ body { background:white; }
         </tr>`;
     }).join('');
 
-    const currentCount = rows.filter(r => !r.empty && r.isCurrent).length;
+    const currentCount = rows.filter(r => !r.empty && r.isCurrent && !r.departed).length;
     const totalRow = filledCount > 0 ? `
       <tr class="total-row">
         <td colspan="2">當月合計（${currentCount} 人）</td>

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "w": {
+      ".read": false,
+      ".write": false,
+      "$wid": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}
