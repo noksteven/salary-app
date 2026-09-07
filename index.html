@@ -272,23 +272,6 @@
     }
     .ref-box .res-section { margin-top: 0; }
 
-    /* ── Print Button ── */
-    .print-btn {
-      width: 100%;
-      padding: 10px;
-      background: white;
-      color: var(--primary);
-      border: 1.5px solid var(--primary);
-      border-radius: var(--radius-sm);
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      margin-top: 1rem;
-      transition: all 0.2s;
-    }
-    .print-btn:hover { background: var(--primary); color: white; }
-
     /* ── Payslip Button ── */
     .payslip-btn {
       width: 100%;
@@ -723,7 +706,7 @@
     @media print {
       body { background: white; }
       .header { background: #4F46E5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .mode-wrap, .input-card, .print-btn, .disclaimer { display: none !important; }
+      .mode-wrap, .input-card, .payslip-btn, .disclaimer { display: none !important; }
       .main-grid { grid-template-columns: 1fr; }
       .card { box-shadow: none; border: 1px solid var(--border); }
     }
@@ -1000,6 +983,72 @@
           </div>
         </div>
         <div id="ft-leave-remain" style="font-size:0.82rem;color:var(--primary);font-weight:600;margin-top:-4px;margin-bottom:6px;padding-left:2px;"></div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>特休折現天數（未休折現）</label>
+            <div class="input-wrap">
+              <input type="number" id="ft-leave-cash" class="has-suffix" value="0" min="0" step="0.5" oninput="calcFulltime()">
+              <span class="suffix">天</span>
+            </div>
+            <div class="input-hint" id="ft-leave-cash-hint"></div>
+          </div>
+          <div class="input-group">
+            <label>&nbsp;</label>
+            <button type="button" onclick="cashOutAllLeave()" style="
+              width:100%;padding:8px 10px;border:1.5px solid var(--primary);
+              border-radius:var(--radius-sm);background:var(--primary-light);
+              color:var(--primary);font-family:inherit;font-size:0.85rem;
+              font-weight:600;cursor:pointer;">
+              💰 剩餘特休全部折現
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 離職金試算 -->
+      <div class="sec-label">離職金試算 <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:0.7rem">（勞退新制，非工資、不計勞健保）</span></div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="ft-severance" onchange="toggleSeverance()">
+        <label for="ft-severance">計算資遣費</label>
+      </label>
+      <div id="ft-severance-wrap" style="display:none;margin-top:0.6rem;">
+        <div class="input-row">
+          <div class="input-group">
+            <label>平均工資（離職前 6 個月）</label>
+            <div class="input-wrap">
+              <span class="prefix">NT$</span>
+              <input type="number" id="ft-avg-wage" class="has-prefix" value="0" min="0" oninput="calcFulltime()">
+            </div>
+            <div class="input-hint" id="ft-avg-wage-hint"></div>
+          </div>
+          <div class="input-group">
+            <label>&nbsp;</label>
+            <button type="button" onclick="refillAvgWage()" style="
+              width:100%;padding:8px 10px;border:1.5px solid var(--primary);
+              border-radius:var(--radius-sm);background:var(--primary-light);
+              color:var(--primary);font-family:inherit;font-size:0.85rem;
+              font-weight:600;cursor:pointer;">
+              ↻ 依前 6 個月重新帶入
+            </button>
+          </div>
+        </div>
+        <label class="toggle-wrap">
+          <input type="checkbox" id="ft-notice-pay" onchange="syncNoticeWrap(); calcFulltime()">
+          <label for="ft-notice-pay">未依法預告或預告日數不足，需加給預告期間工資</label>
+        </label>
+        <div class="input-hint" style="margin-top:2px;">
+          已足額依法預告 → 不必勾（預告期間員工照常出勤領薪，資遣費算法完全相同）
+        </div>
+        <div id="ft-notice-wrap" style="display:none;max-width:50%;margin-top:6px;">
+          <div class="input-group">
+            <label>其中已實際預告（不足才需補）</label>
+            <div class="input-wrap">
+              <input type="number" id="ft-notice-given" class="has-suffix" value="0" min="0" oninput="calcFulltime()">
+              <span class="suffix">日</span>
+            </div>
+          </div>
+        </div>
+        <div id="ft-severance-info" style="background:var(--primary-light);border-radius:10px;padding:12px 14px;margin-top:8px;font-size:0.85rem;line-height:1.9;"></div>
       </div>
     </div>
 
@@ -1067,9 +1116,6 @@
         <p>請輸入薪資資訊<br>結果即時顯示於此</p>
       </div>
     </div>
-    <button class="print-btn" id="print-btn" onclick="window.print()" style="display:none">
-      🖨️ 列印 / 存成 PDF
-    </button>
     <button class="payslip-btn" id="payslip-btn" onclick="generatePayslip()" style="display:none">
       📄 產生工資明細表 PDF
     </button>
@@ -1104,6 +1150,8 @@
   <p class="disclaimer">
     ※ 加班費依《勞動基準法》第24條：底薪÷30÷8 為時薪基礎，平日前2小時×1.34、第3小時起×1.67（小數無條件進入），休息日×1。<br>
     ※ 病假扣除 = 時薪÷2（每小時），事假扣除 = 時薪（每小時），小數無條件進入。<br>
+    ※ 特休未休折現依《勞基法施行細則》第24-1條：一日工資 = 底薪÷30（小數無條件進入），折現金額計入應領但不影響勞健保自付額。<br>
+    ※ 資遣費依《勞工退休金條例》第12條（勞退新制）：每滿1年發0.5個月平均工資，未滿1年按比例，上限6個月；預告期間工資依《勞基法》第16條（滿3個月10日、滿1年20日、滿3年30日）。資遣費屬退職所得非工資，不計勞健保，亦不列入工資明細表。<br>
     ※ 勞保費率 12.5%，員工自付20%（≈2.5%），投保上限 NT$45,800；健保費率 5.17%，受雇者自付30%。本計算器僅供試算參考。
   </p>
 </div>
@@ -1423,6 +1471,22 @@
       map[person] = month;
       saveDepartMap(store, mode, map);
       renderEmployeeSelect(store, mode, person); // 當月他仍在職，保留選取
+
+      // 離職結算：未休特休自動折現（僅正職、且目前表單就是該員工）
+      if (mode === 'fulltime' && sel.value === person) {
+        const days = cashableLeaveDays();
+        const sal  = v('ft-salary');
+        const pay  = leaveCashPayOf(sal, days);
+        if (pay > 0 && confirm(
+              `「${person}」尚有 ${days} 天特休未休。\n` +
+              `是否折現 NT$${pay.toLocaleString('zh-TW')}` +
+              `（一日工資 NT$${Math.ceil(sal / 30).toLocaleString('zh-TW')} × ${days} 天）併入本月薪資？\n` +
+              `（可於「特休折現天數」欄位隨時調整）`)) {
+          document.getElementById('ft-leave-cash').value = days;
+          calcFulltime();
+          savePersonData();
+        }
+      }
     }
     updateEmployeeOrderButtons();
     renderSummaryTable();
@@ -1450,7 +1514,7 @@
   }
 
   // ════ 人員記憶功能 ════
-  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-health-dep','ft-leave-used','ft-leave-kept','ft-custom-ins-amt'];
+  const FT_FIELDS = ['ft-salary','ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift','ft-ot1','ft-ot2','ft-ot3','ft-sick','ft-personal','ft-workdays','ft-health-dep','ft-leave-used','ft-leave-kept','ft-leave-cash','ft-custom-ins-amt','ft-avg-wage','ft-notice-given'];
   const PT_FIELDS = ['pt-hourly','pt-hours','pt-hpd','pt-ot1','pt-ot2'];
 
   function storageKey(store, person, mode, month) {
@@ -1472,6 +1536,13 @@
       document.getElementById('ft-startdate').value = '';
       document.getElementById('ft-leave-used').value = '0';
       document.getElementById('ft-leave-kept').value = '0';
+      document.getElementById('ft-leave-cash').value = '0';
+      document.getElementById('ft-avg-wage').value = '0';
+      document.getElementById('ft-severance').checked = false;
+      document.getElementById('ft-notice-pay').checked = false;
+      document.getElementById('ft-notice-given').value = '0';
+      syncSeveranceWrap();
+      syncNoticeWrap();
       document.getElementById('ft-labor-ins').checked = true;
       document.getElementById('ft-health-ins').checked = true;
       document.getElementById('ft-health-dep').value = '0';
@@ -1480,6 +1551,7 @@
       document.getElementById('ft-tenure-info').style.display = 'none';
       document.getElementById('ft-leave-wrap').style.display = 'none';
       document.getElementById('ft-leave-remain').textContent = '';
+      document.getElementById('ft-leave-cash-hint').textContent = '';
       document.getElementById('ft-workdays-hint').textContent = '';
       const ae = document.getElementById('ft-bonus-attend');
       ae.disabled = false; ae.style.background = ''; ae.title = '';
@@ -1505,6 +1577,8 @@
       data['ft-labor-ins'] = document.getElementById('ft-labor-ins').checked;
       data['ft-health-ins'] = document.getElementById('ft-health-ins').checked;
       data['ft-custom-ins'] = document.getElementById('ft-custom-ins').checked;
+      data['ft-severance']  = document.getElementById('ft-severance').checked;
+      data['ft-notice-pay'] = document.getElementById('ft-notice-pay').checked;
       data['ft-startdate']  = document.getElementById('ft-startdate').value;
     } else {
       PT_FIELDS.forEach(id => { data[id] = document.getElementById(id).value; });
@@ -1565,6 +1639,10 @@
           document.getElementById('ft-health-dep').value = data['ft-health-dep'] ?? '0';
           document.getElementById('ft-custom-ins').checked = data['ft-custom-ins'] ?? false;
           toggleCustomIns();
+          document.getElementById('ft-severance').checked  = data['ft-severance'] ?? false;
+          document.getElementById('ft-notice-pay').checked = data['ft-notice-pay'] ?? false;
+          syncSeveranceWrap();
+          syncNoticeWrap();
           document.getElementById('ft-startdate').value = data['ft-startdate'] || '';
         } else {
           PT_FIELDS.forEach(id => { if (data[id] !== undefined) document.getElementById(id).value = data[id]; });
@@ -1701,7 +1779,6 @@
         <div class="big">🧮</div>
         <p>請輸入薪資資訊<br>結果即時顯示於此</p>
       </div>`;
-    document.getElementById('print-btn').style.display = 'none';
     document.getElementById('payslip-btn').style.display = 'none';
   }
 
@@ -1739,7 +1816,11 @@
     const ot1h = v('ft-ot1'), ot2h = v('ft-ot2'), ot3h = v('ft-ot3');
     const weekdayOT = Math.ceil(hourly * 1.34) * ot1h + Math.ceil(hourly * 1.67) * ot2h;
     const restdayOT = hourly * ot3h;
-    const sub1      = basePay + weekdayOT + restdayOT;
+    // 特休未休折現（需有到職日才推算特休）
+    const leaveCashDays = document.getElementById('ft-startdate').value
+                        ? (parseFloat(document.getElementById('ft-leave-cash').value) || 0) : 0;
+    const leaveCashPay  = leaveCashPayOf(sal, leaveCashDays);
+    const sub1      = basePay + weekdayOT + restdayOT + leaveCashPay;
 
     const healthDep   = v('ft-health-dep');
     const customIns   = document.getElementById('ft-custom-ins').checked;
@@ -1790,11 +1871,12 @@ ${tr1(1,  td(`姓名：${personSafe}`, '', ' colspan="3"') +
 ${tr1(2,  td(dateRange, 'font-size:10pt;', ' colspan="4"'))}
 ${tr1(3,  td('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
           td('金額', 'text-align:center;font-weight:600;', ' colspan="2"'))}
-${tr1(4,  rcat(4,'應領金額') +
+${tr1(4,  rcat(leaveCashPay > 0 ? 5 : 4,'應領金額') +
           td(workdays < 30 ? `月薪（${workdays}天）` : '月薪') +
           td(basePay.toLocaleString('zh-TW'), 'text-align:right;', ' colspan="2"'))}
 ${tr1(5,  td('平日加班') + td(fmt(weekdayOT), 'text-align:right;', ' colspan="2"'))}
 ${tr1(6,  td('休假日加班') + td(fmt(restdayOT), 'text-align:right;', ' colspan="2"'))}
+${leaveCashPay > 0 ? tr1(6, td(`特休未休折現（${leaveCashDays}天）`) + td(fmt(leaveCashPay), 'text-align:right;', ' colspan="2"')) : ''}
 ${tr1(7,  td('小計(1)') + td(sub1.toLocaleString('zh-TW'), 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
 ${tr1(8,  rcat(6,'扣款金額') +
           td('勞工保險費') +
@@ -1840,11 +1922,12 @@ ${tr2(1,  td2(`姓名：${personSafe}`, '', ' colspan="4"'))}
 ${tr2(2,  td2(dateRange, 'font-size:9pt;', ' colspan="4"'))}
 ${tr2(3,  td2('項目', 'text-align:center;font-weight:600;', ' colspan="2"') +
           td2('金額', 'text-align:center;font-weight:600;', ' colspan="2"'))}
-${tr2(4,  rcat2(4,'應領金額') +
+${tr2(4,  rcat2(leaveCashPay > 0 ? 5 : 4,'應領金額') +
           td2(workdays < 30 ? `月薪（${workdays}天）` : '月薪') +
           td2(basePay.toLocaleString('zh-TW'), 'text-align:right;', ' colspan="2"'))}
 ${tr2(5,  td2('平日加班') + td2(fmt(weekdayOT), 'text-align:right;', ' colspan="2"'))}
 ${tr2(6,  td2('休假日加班') + td2(fmt(restdayOT), 'text-align:right;', ' colspan="2"'))}
+${leaveCashPay > 0 ? tr2(6, td2(`特休未休折現（${leaveCashDays}天）`) + td2(fmt(leaveCashPay), 'text-align:right;', ' colspan="2"')) : ''}
 ${tr2(7,  td2('小計(1)') + td2(sub1.toLocaleString('zh-TW'), 'text-align:right;background:rgb(255,255,11);', ' colspan="2"'))}
 ${tr2(8,  rcat2(6,'扣款金額') +
           td2('勞工保險費') +
@@ -1893,7 +1976,7 @@ body { background:white; }
   }
 
   // ════ 月薪資總覽 ════
-  function computeFTSummary(data) {
+  function computeFTSummary(data, month) {
     const sal = parseFloat(data['ft-salary']) || 0;
     if (!sal) return null;
     const workdays = parseFloat(data['ft-workdays']) || 30;
@@ -1903,7 +1986,10 @@ body { background:white; }
     const ot2h   = parseFloat(data['ft-ot2']) || 0;
     const ot3h   = parseFloat(data['ft-ot3']) || 0;
     const otPay  = Math.ceil(hourly * 1.34) * ot1h + Math.ceil(hourly * 1.67) * ot2h + hourly * ot3h;
-    const sub1   = basePay + otPay;
+    // 特休未休折現（需有到職日才推算特休）
+    const leaveCash = data['ft-startdate']
+                    ? leaveCashPayOf(sal, parseFloat(data['ft-leave-cash']) || 0) : 0;
+    const sub1   = basePay + otPay + leaveCash;
     const customIns = data['ft-custom-ins'] === 'true' || data['ft-custom-ins'] === true;
     const labIns  = !customIns && (data['ft-labor-ins'] === 'true' || data['ft-labor-ins'] === true);
     const hthIns  = !customIns && (data['ft-health-ins'] === 'true' || data['ft-health-ins'] === true);
@@ -1918,7 +2004,15 @@ body { background:white; }
     const net    = Math.ceil((sub1 - sub2) / 10) * 10;
     const bonus  = ['ft-bonus-duty','ft-bonus-attend','ft-bonus-emp','ft-bonus-lead','ft-bonus-mgr','ft-bonus-shift']
                     .reduce((s, k) => s + (parseFloat(data[k]) || 0), 0);
-    return { sal: basePay, ot: otPay, bonus, deduct: sub2, net, total: Math.ceil((sub1 + bonus - sub2) / 10) * 10 };
+    // 離職金（資遣費＋預告工資）不列入實領工資，只併入「合計領」
+    const sevOn  = data['ft-severance'] === true || data['ft-severance'] === 'true';
+    const sev    = sevOn ? severanceOf(data['ft-startdate'], monthEndDate(month),
+                            parseFloat(data['ft-avg-wage']) || 0,
+                            data['ft-notice-pay'] === true || data['ft-notice-pay'] === 'true',
+                            parseFloat(data['ft-notice-given']) || 0) : null;
+    const severance = sev ? sev.total : 0;
+    return { sal: basePay, ot: otPay, bonus, leaveCash, severance, deduct: sub2, net,
+             total: Math.ceil((sub1 + bonus - sub2) / 10) * 10 + severance };
   }
 
   function computePTSummary(data) {
@@ -1933,7 +2027,7 @@ body { background:white; }
     const labI   = ins ? laborIns(gross) : 0;
     const hthI   = ins ? healthIns(gross, 0) : 0;
     const net    = Math.ceil((gross - labI - hthI) / 10) * 10;
-    return { sal: base, ot: ot1Pay + ot2Pay, bonus: 0, deduct: labI + hthI, net, total: net };
+    return { sal: base, ot: ot1Pay + ot2Pay, bonus: 0, leaveCash: 0, severance: 0, deduct: labI + hthI, net, total: net };
   }
 
   function renderSummaryTable() {
@@ -1952,25 +2046,26 @@ body { background:white; }
     document.getElementById('summary-month-label').textContent = `— ${rocYear}年${mp}月`;
 
     const rows = [];
-    let totSal = 0, totOT = 0, totBonus = 0, totDeduct = 0, totNet = 0, totTotal = 0;
+    let totSal = 0, totOT = 0, totBonus = 0, totLeaveCash = 0, totSeverance = 0, totDeduct = 0, totNet = 0, totTotal = 0;
     let filledCount = 0;
 
     const addRow = (name, mode, compute, departed) => {
       // 優先用當月資料，沒有則用最後編輯月份的資料
       let raw = _ls.getItem(storageKey(store, name, mode, month));
       let isCurrent = true;
+      let dataMonth = month;
       if (!raw) {
         const lastMonth = _ls.getItem(lastEditedKey(store, name, mode));
         if (lastMonth) {
           raw = _ls.getItem(storageKey(store, name, mode, lastMonth));
-          if (raw) isCurrent = false;
+          if (raw) { isCurrent = false; dataMonth = lastMonth; }
         }
       }
       if (!raw) {
         rows.push({ name, mode, empty: true, departed });
         return;
       }
-      const r = compute(JSON.parse(raw));
+      const r = compute(JSON.parse(raw), dataMonth);
       if (!r) {
         rows.push({ name, mode, empty: true, departed });
         return;
@@ -1981,6 +2076,8 @@ body { background:white; }
         filledCount++;
         if (isCurrent) {
           totSal += r.sal; totOT += r.ot; totBonus += r.bonus;
+          totLeaveCash += r.leaveCash || 0;
+          totSeverance += r.severance || 0;
           totDeduct += r.deduct; totNet += r.net; totTotal += r.total;
         }
       }
@@ -2002,6 +2099,11 @@ body { background:white; }
     const N = n => (n && n > 0) ? n.toLocaleString('zh-TW') : '—';
     const M = n => 'NT$\u00a0' + n.toLocaleString('zh-TW');
 
+    // 特休折現／離職金欄僅在本月有人適用時才出現，平時不佔版面
+    const showLeaveCash = rows.some(r => !r.empty && r.leaveCash > 0);
+    const showSeverance = rows.some(r => !r.empty && r.severance > 0);
+    const extraCols = (showLeaveCash ? 1 : 0) + (showSeverance ? 1 : 0);
+
     const bodyRows = rows.map(r => {
       const badge = `<span class="${r.mode === 'fulltime' ? 'ft' : 'pt'}-badge">${r.mode === 'fulltime' ? '正職' : '工讀'}</span>`;
       const departedTag = r.departed ? `<span class="departed-tag">離職</span>` : '';
@@ -2009,7 +2111,7 @@ body { background:white; }
         <tr style="color:var(--text-muted);font-style:italic;${r.departed ? 'opacity:0.55;' : ''}">
           <td>${escapeHtml(r.name)}${departedTag}</td>
           <td>${badge}</td>
-          <td colspan="6" style="text-align:center;font-size:0.8rem;">尚無資料</td>
+          <td colspan="${6 + extraCols}" style="text-align:center;font-size:0.8rem;">尚無資料</td>
         </tr>`;
       const dim = (r.isCurrent && !r.departed) ? '' : 'opacity:0.55;';
       const oldTag = r.isCurrent ? '' : `<span style="font-size:0.68rem;background:#F1F5F9;color:var(--text-muted);padding:1px 5px;border-radius:8px;margin-left:4px;vertical-align:middle;">非當月</span>`;
@@ -2020,6 +2122,8 @@ body { background:white; }
           <td>${N(r.sal)}</td>
           <td>${N(r.ot)}</td>
           <td>${N(r.bonus)}</td>
+          ${showLeaveCash ? `<td style="color:var(--primary)">${N(r.leaveCash)}</td>` : ''}
+          ${showSeverance ? `<td style="color:#B45309">${N(r.severance)}</td>` : ''}
           <td style="color:var(--danger)">${r.deduct > 0 ? '－' + r.deduct.toLocaleString('zh-TW') : '—'}</td>
           <td style="font-weight:600">${M(r.net)}</td>
           <td style="font-weight:700;color:var(--primary)">${M(r.total)}</td>
@@ -2033,6 +2137,8 @@ body { background:white; }
         <td>${N(totSal)}</td>
         <td>${N(totOT)}</td>
         <td>${N(totBonus)}</td>
+        ${showLeaveCash ? `<td style="color:var(--primary)">${N(totLeaveCash)}</td>` : ''}
+        ${showSeverance ? `<td style="color:#B45309">${N(totSeverance)}</td>` : ''}
         <td style="color:var(--danger)">${totDeduct > 0 ? '－' + totDeduct.toLocaleString('zh-TW') : '—'}</td>
         <td>${M(totNet)}</td>
         <td style="color:var(--primary)">${M(totTotal)}</td>
@@ -2047,6 +2153,8 @@ body { background:white; }
             <th>基本薪</th>
             <th>加班費</th>
             <th>月份獎金</th>
+            ${showLeaveCash ? '<th>特休折現</th>' : ''}
+            ${showSeverance ? '<th>離職金</th>' : ''}
             <th>扣款</th>
             <th>實領</th>
             <th>合計領</th>
@@ -2057,6 +2165,145 @@ body { background:white; }
           ${totalRow}
         </tbody>
       </table>`;
+  }
+
+  // ════ 特休共用計算（勞基法第 38 條）════
+  // 依到職日與基準日推算年資與本年度特休天數
+  function tenureOf(startDateVal, refDate) {
+    const start = new Date(startDateVal);
+    const today = refDate || new Date();
+    let years  = today.getFullYear() - start.getFullYear();
+    let months = today.getMonth()    - start.getMonth();
+    let days   = today.getDate()     - start.getDate();
+    // 日數為負時向前一個月借日（資遣費未滿一年需按比例計給，故保留日數餘額）
+    if (days   < 0) { months--; days += new Date(today.getFullYear(), today.getMonth(), 0).getDate(); }
+    if (months < 0) { years--; months += 12; }
+    const totalMonths = years * 12 + (months < 0 ? 0 : months);
+    let annualLeave = 0;
+    if      (totalMonths < 6)   annualLeave = 0;
+    else if (totalMonths < 12)  annualLeave = 3;
+    else if (years < 2)         annualLeave = 7;
+    else if (years < 3)         annualLeave = 10;
+    else if (years < 5)         annualLeave = 14;
+    else if (years < 10)        annualLeave = 15;
+    else                        annualLeave = Math.min(15 + (years - 10), 30);
+    return { years, months: Math.max(months, 0), days: Math.max(days, 0), totalMonths, annualLeave };
+  }
+
+  // 目前表單上「尚可折現」的特休天數＝本年度＋保留 － 已使用（不扣已填的折現天數）
+  function cashableLeaveDays() {
+    const startDateVal = document.getElementById('ft-startdate').value;
+    if (!startDateVal) return 0;
+    const { annualLeave } = tenureOf(startDateVal);
+    const used = parseFloat(document.getElementById('ft-leave-used').value) || 0;
+    const kept = parseFloat(document.getElementById('ft-leave-kept').value) || 0;
+    return Math.max(annualLeave + kept - used, 0);
+  }
+
+  // 未休特休折現金額：一日工資（底薪 ÷ 30，無條件進入）× 折現天數
+  function leaveCashPayOf(salary, days) {
+    return days > 0 ? Math.ceil(Math.ceil(salary / 30) * days) : 0;
+  }
+
+  // 「剩餘特休全部折現」按鈕
+  function cashOutAllLeave() {
+    if (!document.getElementById('ft-startdate').value) { alert('請先填寫到職日，才能推算特休天數'); return; }
+    const days = cashableLeaveDays();
+    if (days <= 0) { alert('目前沒有可折現的特休天數'); return; }
+    document.getElementById('ft-leave-cash').value = days;
+    calcFulltime();
+    if (document.getElementById('person-select').value) savePersonData();
+  }
+
+  // ════ 資遣費（勞退新制）════
+  // 指定月份的月底日期，作為離職日／年資計算基準
+  function monthEndDate(month) {
+    if (!month) { const d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+    const [y, m] = month.split('-').map(Number);
+    return new Date(y, m, 0);
+  }
+
+  // 平均工資：離職月之前 6 個月的工資總額（底薪＋津貼獎金＋加班費）平均，不含特休折現
+  function avgWageOf(person, refMonth) {
+    const store = currentStore();
+    let sum = 0, cnt = 0;
+    const months = [];
+    if (!person || !refMonth) return { avg: 0, count: 0 };
+    let m = refMonth;
+    for (let i = 0; i < 6; i++) {
+      m = _prevMonth(m);
+      const raw = _ls.getItem(storageKey(store, person, 'fulltime', m));
+      if (!raw) continue;
+      let r; try { r = computeFTSummary(JSON.parse(raw), m); } catch (e) { continue; }
+      if (!r) continue;
+      sum += r.sal + r.ot + r.bonus;
+      cnt++; months.push(m);
+    }
+    months.reverse();
+    return { avg: cnt ? Math.round(sum / cnt) : 0, count: cnt, from: months[0], to: months[months.length - 1] };
+  }
+
+  // 資遣費＋預告期間工資
+  // 勞退條例§12：每滿 1 年給 0.5 個月平均工資，未滿 1 年按比例，上限 6 個月
+  // 勞基法§16 預告日數：滿 3 個月未滿 1 年→10 日；滿 1 年未滿 3 年→20 日；滿 3 年→30 日
+  function severanceOf(startDateVal, endDate, avgWage, withNotice, noticeGiven) {
+    const zero = { serviceYears: 0, payMonths: 0, pay: 0, noticeDays: 0, noticeShort: 0,
+                   noticePay: 0, total: 0, capped: false, tenure: null };
+    if (!startDateVal || !(avgWage > 0)) return zero;
+    const t = tenureOf(startDateVal, endDate);
+    const serviceYears = t.years + t.months / 12 + t.days / 365;
+    if (serviceYears <= 0) return zero;
+    const rawMonths = serviceYears * 0.5;
+    const payMonths = Math.min(rawMonths, 6);
+    const pay = Math.round(avgWage * payMonths);
+    let noticeDays = 0;
+    if      (t.totalMonths >= 36) noticeDays = 30;
+    else if (t.totalMonths >= 12) noticeDays = 20;
+    else if (t.totalMonths >= 3)  noticeDays = 10;
+    // 已實際預告的日數可扣抵，只補不足的部分（勞基法§16Ⅲ）
+    const noticeShort = withNotice ? Math.max(noticeDays - (noticeGiven || 0), 0) : 0;
+    const noticePay   = Math.round(avgWage / 30 * noticeShort);
+    return { serviceYears, payMonths, pay, noticeDays, noticeShort, noticePay, total: pay + noticePay,
+             capped: rawMonths > 6, tenure: t };
+  }
+
+  // 僅同步顯示狀態（載入 / 清空欄位時用，不觸發計算）
+  function syncSeveranceWrap() {
+    document.getElementById('ft-severance-wrap').style.display =
+      document.getElementById('ft-severance').checked ? 'block' : 'none';
+  }
+
+  // 勾選「需加給預告工資」時才顯示已預告日數欄
+  function syncNoticeWrap() {
+    document.getElementById('ft-notice-wrap').style.display =
+      document.getElementById('ft-notice-pay').checked ? 'block' : 'none';
+  }
+
+  // 使用者勾選 / 取消勾選
+  function toggleSeverance() {
+    syncSeveranceWrap();
+    // 首次勾選且平均工資仍為 0 → 自動帶入前 6 個月平均
+    if (document.getElementById('ft-severance').checked &&
+        !(parseFloat(document.getElementById('ft-avg-wage').value) > 0)) fillAvgWage();
+    calcFulltime();
+  }
+
+  function fillAvgWage() {
+    const person = document.getElementById('person-select').value;
+    if (!person) return null;
+    const r = avgWageOf(person, currentMonth());
+    if (r.avg > 0) document.getElementById('ft-avg-wage').value = r.avg;
+    return r;
+  }
+
+  // 「↻ 依前 6 個月重新帶入」按鈕
+  function refillAvgWage() {
+    const person = document.getElementById('person-select').value;
+    if (!person) { alert('請先選擇員工'); return; }
+    const r = fillAvgWage();
+    if (!r || r.count === 0) { alert('前 6 個月查無已儲存的薪資資料，請手動填入平均工資'); return; }
+    calcFulltime();
+    savePersonData();
   }
 
   // ════ 正職計算 ════
@@ -2087,6 +2334,11 @@ body { background:white; }
 
     // 時薪基礎：底薪 ÷ 30 ÷ 8，小數無條件進入
     const hourly    = Math.ceil(salary / 30 / 8);
+    // 一日工資：底薪 ÷ 30，小數無條件進入（特休未休折現用）
+    const dailyWage = Math.ceil(salary / 30);
+
+    // 特休未休折現（僅在有填到職日時計入）
+    let leaveCashDays = 0, leaveCashPay = 0;
 
     // 工作天數比例薪資
     const workdays  = parseFloat(document.getElementById('ft-workdays').value) || 30;
@@ -2108,28 +2360,13 @@ body { background:white; }
       const start   = new Date(startDateVal);
       const today   = new Date();
       today.setHours(0,0,0,0);
-      let years  = today.getFullYear() - start.getFullYear();
-      let months = today.getMonth()    - start.getMonth();
-      let days   = today.getDate()     - start.getDate();
-      if (days   < 0) { months--; }
-      if (months < 0) { years--; months += 12; }
-      const totalMonths = years * 12 + (months < 0 ? 0 : months);
+      const { years, months, annualLeave } = tenureOf(startDateVal, today);
 
       // 下次週年日
       const nextAnniv = new Date(start);
       nextAnniv.setFullYear(today.getFullYear());
       if (nextAnniv <= today) nextAnniv.setFullYear(today.getFullYear() + 1);
       const daysToAnniv = Math.ceil((nextAnniv - today) / 86400000);
-
-      // 特休天數（勞基法第38條）
-      let annualLeave = 0;
-      if      (totalMonths < 6)   annualLeave = 0;
-      else if (totalMonths < 12)  annualLeave = 3;
-      else if (years < 2)         annualLeave = 7;
-      else if (years < 3)         annualLeave = 10;
-      else if (years < 5)         annualLeave = 14;
-      else if (years < 10)        annualLeave = 15;
-      else                        annualLeave = Math.min(15 + (years - 10), 30);
 
       const yrStr = years > 0 ? `${years} 年` : '';
       const moStr = (months > 0 || years === 0) ? `${Math.max(months, 0)} 個月` : '';
@@ -2138,16 +2375,30 @@ body { background:white; }
       const leaveWrap   = document.getElementById('ft-leave-wrap');
       const leaveRemain = document.getElementById('ft-leave-remain');
       leaveWrap.style.display = 'block';
-      const leaveUsed = parseFloat(document.getElementById('ft-leave-used').value) || 0;
-      const leaveKept = parseFloat(document.getElementById('ft-leave-kept').value) || 0;
-      const totalLeave = annualLeave + leaveKept;
-      const leaveLeft  = Math.max(totalLeave - leaveUsed, 0);
+      const leaveUsed  = parseFloat(document.getElementById('ft-leave-used').value) || 0;
+      const leaveKept  = parseFloat(document.getElementById('ft-leave-kept').value) || 0;
+      const totalDays  = annualLeave + leaveKept;
+      leaveCashDays    = parseFloat(document.getElementById('ft-leave-cash').value) || 0;
+      leaveCashPay     = leaveCashPayOf(salary, leaveCashDays);
+      const leaveLeft  = Math.max(totalDays - leaveUsed - leaveCashDays, 0);
       const leaveColor = leaveLeft <= 0 ? 'var(--danger)' : 'var(--primary)';
       leaveRemain.innerHTML =
         `剩餘特休：<span style="color:${leaveColor};font-size:1rem;">${leaveLeft} 天</span>` +
         `　（本年 ${annualLeave} 天` +
-        (leaveKept > 0 ? ` ＋ 保留 ${leaveKept} 天 ＝ 共 ${totalLeave} 天` : ``) +
-        ` ｜ 已用 ${leaveUsed} 天）`;
+        (leaveKept > 0 ? ` ＋ 保留 ${leaveKept} 天 ＝ 共 ${totalDays} 天` : ``) +
+        ` ｜ 已用 ${leaveUsed} 天` +
+        (leaveCashDays > 0 ? ` ｜ 折現 ${leaveCashDays} 天` : ``) + `）`;
+
+      // 折現提示；折現＋已用超過可休天數時警示
+      const cashHint = document.getElementById('ft-leave-cash-hint');
+      const overDays = leaveUsed + leaveCashDays - totalDays;
+      if (leaveCashDays > 0) {
+        cashHint.innerHTML =
+          `一日工資 ${ntd(dailyWage)} × ${leaveCashDays} 天 ＝ <strong>${ntd(leaveCashPay)}</strong>` +
+          (overDays > 0 ? `<br><span style="color:var(--danger)">⚠ 已超出可休天數 ${overDays} 天</span>` : ``);
+      } else {
+        cashHint.textContent = `一日工資 ${ntd(dailyWage)} / 天（底薪 ÷ 30）`;
+      }
 
       tenureDiv.style.display = 'block';
       tenureDiv.innerHTML =
@@ -2158,6 +2409,7 @@ body { background:white; }
       tenureDiv.style.display = 'none';
       document.getElementById('ft-leave-wrap').style.display = 'none';
       document.getElementById('ft-leave-remain').textContent = '';
+      document.getElementById('ft-leave-cash-hint').textContent = '';
     }
 
     // 獎金
@@ -2212,7 +2464,7 @@ body { background:white; }
     const totalIns = customIns ? customInsAmt : labIns + hthIns;
 
     // 合計（底薪用比例薪資）
-    const grossPay    = basePay + totalBonus + totalOT;
+    const grossPay    = basePay + totalBonus + totalOT + leaveCashPay;
     const totalDeduct = totalLeave + totalIns;
     const netPay      = Math.ceil((grossPay - totalDeduct) / 10) * 10;
 
@@ -2242,6 +2494,10 @@ body { background:white; }
       if (ot2h > 0) html += row(`平日第 3 起 ${ot2h}h（${ntd(otRate2)}/h）`,   ntd(ot2Pay), 'pos');
       if (ot3h > 0) html += row(`休息日加班 ${ot3h}h（${ntd(otRate3)}/h）`,    ntd(ot3Pay), 'pos');
       html += subtotalRow('加班費小計', ntd(totalOT));
+    }
+
+    if (leaveCashPay > 0) {
+      html += row(`特休未休折現 ${leaveCashDays} 天（${ntd(dailyWage)}/天）`, ntd(leaveCashPay), 'pos');
     }
 
     html += `<div class="res-item" style="font-weight:700">
@@ -2277,15 +2533,70 @@ body { background:white; }
                <span class="val">${ntd(netPay)}</span>
              </div>`;
 
+    // ── 離職金試算（資遣費屬退職所得，非工資：不計勞健保、不列入工資明細表）──
+    const sevOn   = document.getElementById('ft-severance').checked;
+    const sevInfo = document.getElementById('ft-severance-info');
+    const avgHint = document.getElementById('ft-avg-wage-hint');
+    let sev = null;
+    if (sevOn) {
+      const avgWage = v('ft-avg-wage');
+      const endDate = monthEndDate(currentMonth());
+      const endStr  = `${endDate.getFullYear() - 1911}/${String(endDate.getMonth() + 1).padStart(2, '0')}/${String(endDate.getDate()).padStart(2, '0')}`;
+      const a = avgWageOf(document.getElementById('person-select').value, currentMonth());
+      avgHint.textContent = a.count > 0
+        ? `前 6 個月有 ${a.count} 個月資料（${a.from} ～ ${a.to}），平均 NT$${a.avg.toLocaleString('zh-TW')}`
+        : '前 6 個月查無已儲存資料，請手動填入';
+      sev = severanceOf(startDateVal, endDate, avgWage,
+                        document.getElementById('ft-notice-pay').checked,
+                        v('ft-notice-given'));
+      if (!startDateVal) {
+        sevInfo.innerHTML = '<span style="color:var(--danger)">⚠ 請先填寫到職日，才能推算年資與資遣費</span>';
+      } else if (!(avgWage > 0)) {
+        sevInfo.innerHTML = '<span style="color:var(--danger)">⚠ 請填入平均工資（可按上方按鈕自動帶入）</span>';
+      } else {
+        const t = sev.tenure;
+        sevInfo.innerHTML =
+          `📅 年資計算至 ${endStr}（民國）　｜　年資：${t.years} 年 ${t.months} 個月 ${t.days} 天<br>` +
+          `💼 資遣費：${sev.serviceYears.toFixed(2)} 年 × 0.5 ＝ <strong>${sev.payMonths.toFixed(2)} 個月</strong>` +
+          (sev.capped ? `（已達 6 個月上限）` : ``) +
+          ` × ${ntd(avgWage)} ＝ <strong>${ntd(sev.pay)}</strong>` +
+          (sev.noticePay > 0
+            ? `<br>📢 預告期間工資：法定 ${sev.noticeDays} 日` +
+              (v('ft-notice-given') > 0 ? ` － 已預告 ${v('ft-notice-given')} 日` : ``) +
+              ` ＝ 應補 <strong>${sev.noticeShort} 日</strong>` +
+              `<br>　　${ntd(avgWage)} ÷ 30 × ${sev.noticeShort} 日 ＝ <strong>${ntd(sev.noticePay)}</strong>`
+            : (sev.noticeDays > 0
+                ? `<br>📢 法定預告期 ${sev.noticeDays} 日` +
+                  (sev.noticeShort === 0 && document.getElementById('ft-notice-pay').checked
+                    ? `，已預告 ${v('ft-notice-given')} 日已足額，不需補發。`
+                    : `；已依法預告則不需另給預告工資。`) +
+                  `<br>　　預告期間勞工得請謀職假，每星期不超過 2 日之工作時間，工資照給（勞基法§16Ⅱ）。`
+                : ``));
+      }
+    } else {
+      sevInfo.innerHTML = '';
+      avgHint.textContent = '';
+    }
+
+    if (sev && sev.total > 0) {
+      html += `<div class="res-section">離職金試算（非工資 · 不計勞健保）</div>`;
+      html += row(`資遣費（年資 ${sev.serviceYears.toFixed(2)} 年 × 0.5 ＝ ${sev.payMonths.toFixed(2)} 個月${sev.capped ? '，已達上限' : ''}）`,
+                  ntd(sev.pay), 'pos');
+      if (sev.noticePay > 0) html += row(`預告期間工資（應補 ${sev.noticeShort} 日）`, ntd(sev.noticePay), 'pos');
+      html += `<div class="res-total">
+                 <span class="lbl">💰 本月合計應付（薪資＋離職金）</span>
+                 <span class="val">${ntd(netPay + sev.total)}</span>
+               </div>`;
+    }
+
     // 參考
     html += `<div class="ref-box">
                <div class="res-section">參考資訊</div>
                ${row('時薪基礎（底薪÷30÷8）', ntd(hourly) + ' / 小時', 'sub')}
-               ${row('日薪基礎（底薪÷30）',  ntd(Math.ceil(salary / 30)) + ' / 天',  'sub')}
+               ${row('日薪基礎（底薪÷30）',  ntd(dailyWage) + ' / 天',  'sub')}
              </div>`;
 
     document.getElementById('results').innerHTML = html;
-    document.getElementById('print-btn').style.display = 'block';
     document.getElementById('payslip-btn').style.display = 'block';
   }
 
@@ -2358,7 +2669,6 @@ body { background:white; }
     }
 
     document.getElementById('results').innerHTML = html;
-    document.getElementById('print-btn').style.display = 'block';
   }
 
   // ════ 自動儲存（使用者輸入觸發，JS 設值不觸發）════
