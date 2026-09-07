@@ -1,0 +1,7 @@
+# 本機 Claude Code 設定（含個人路徑，不應進入公開 repo）
+.claude/
+
+# Firebase CLI 部署快取
+.firebase/
+
+.DS_Store
